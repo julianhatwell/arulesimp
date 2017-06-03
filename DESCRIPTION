@@ -1,0 +1,16 @@
+Package: arulesimp
+Type: Package
+Title: Association Rules Based Method for Imputation
+Version: 0.1.0
+Author: Julian Hatwell
+Maintainer: Julian Hatwell <julian.hatwell@mail.bcu.ac.uk>
+Description: Uses association rules to determine the most suitable value for imputation.
+    Designed primarily for surveys and works best on categorical, ordinal data and Likert scales.
+    Numeric data needs to be discretized.
+License: What license is it under?
+Encoding: UTF-8
+LazyData: true
+Imports: arules,
+    arulesViz
+RoxygenNote: 6.0.1
+Suggests: testthat
