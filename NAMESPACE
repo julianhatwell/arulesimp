@@ -3,3 +3,4 @@
 export(all_factor)
 export(char_to_na)
 export(missing_values)
+export(unique_values)

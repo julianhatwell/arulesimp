@@ -4,6 +4,8 @@ Title: Association Rules Based Method for Imputation
 Version: 0.1.0
 Author: Julian Hatwell
 Maintainer: Julian Hatwell <julian.hatwell@mail.bcu.ac.uk>
+URL: http://github.com/julianhatwell/arulesimp
+BugReports: http://github.com/julianhatwell/arulesimp/issues
 Description: Uses association rules to determine the most suitable value for imputation.
     Designed primarily for surveys and works best on categorical, ordinal data and Likert scales.
     Numeric data needs to be discretized.

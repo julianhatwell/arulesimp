@@ -9,7 +9,7 @@ missing_values(dt, sorted = TRUE)
 \arguments{
 \item{dt}{A data frame}
 
-\item{sorted}{A logical. Do you want to sort the results (Default = TRUE)}
+\item{sorted}{A logical vector. Do you want to sort the results (Default = TRUE)}
 }
 \value{
 A named numeric. Names are the variable names from the input dt. Values are the count of NA found in that variable

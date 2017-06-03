@@ -55,7 +55,7 @@ all_factor <- function(dt
 #' Find the variables that contain any missing (NA) values.
 #'
 #' @param dt A data frame
-#' @param sorted A logical. Do you want to sort the results (Default = TRUE)
+#' @param sorted A logical vector. Do you want to sort the results (Default = TRUE)
 #' @return A named numeric. Names are the variable names from the input dt. Values are the count of NA found in that variable
 #' @examples
 #' missing_values(data.frame(x = c("foo", NA), y = c(NA, "bar")))
@@ -68,4 +68,40 @@ missing_values <- function(dt
   mv <- mv[which(mv > 0)]
   if (sorted) mv <- sort(mv)
   return(mv)
+}
+
+#' Create a list of unique values in a dataset
+#'
+#' @description Useful for searching for rules
+#'
+#' @param dt A data frame
+#' @param which_cols A vector of variable names to search.
+#' @return A named list. Names are the input variable names.
+#' List values are vectors of unique values from the input dt.
+#' @examples
+#' missing_values(data.frame(x = c("foo", NA), y = c(NA, "bar")))
+#' @export
+unique_values <- function(dt, which_cols) {
+  uv <- lapply(which_cols, function(wc) {
+    unique(dt[[wc]])
+  })
+  names(uv) <- which_cols
+  return(uv)
+}
+
+#' @export
+make_cars <- function(ruleset
+                      , var_list
+                      , sp = 0.1
+                      , cf = 0.1
+                      , lf = 1) {
+  cars <- list()
+  for (v in var_list) {
+    cars[[v]] <- subset(ruleset
+                        , subset = rhs %pin% paste0(v, "=") &
+                          support >= sp &
+                          confidence >= cf &
+                          lift >= lf)
+  }
+  return(cars)
 }
