@@ -88,20 +88,3 @@ unique_values <- function(dt, which_cols) {
   names(uv) <- which_cols
   return(uv)
 }
-
-#' @export
-make_cars <- function(ruleset
-                      , var_list
-                      , sp = 0.1
-                      , cf = 0.1
-                      , lf = 1) {
-  cars <- list()
-  for (v in var_list) {
-    cars[[v]] <- subset(ruleset
-                        , subset = rhs %pin% paste0(v, "=") &
-                          support >= sp &
-                          confidence >= cf &
-                          lift >= lf)
-  }
-  return(cars)
-}

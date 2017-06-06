@@ -44,3 +44,17 @@ test_that("missing_values finds missing values"
                   x = c("foo", NA)
                   , y = c(NA, NA)))))
           })
+
+data("responses")
+resp <- char_to_na(responses)
+resp <- all_factor(resp)
+mv_sorted <- missing_values(resp)
+resp <- as(resp, "transactions")
+
+rules <- arules::apriori(resp
+                         , parameter = list(
+                           support = 0.5))
+test_that("make_cars finds rules for each target var"
+          , { expect_identical(names(make_cars(rules, names(mv_sorted)))
+                             , names(mv_sorted))
+          })
