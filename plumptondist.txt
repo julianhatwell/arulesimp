@@ -1,0 +1,14 @@
+Verystronglyagree 0 1 3 6 90 4.85 0.50 -3.70 17.03
+Stronglyagree 1 3 6 30 60 4.45 0.82 -1.76 6.35
+Agreepeak 5 10 20 45 20 3.65 1.07 -0.77 3.08
+Agreeflat 10 15 20 30 25 3.45 1.29 -0.46 2.12
+Neutraltoagree 10 20 30 25 15 3.15 1.20 -0.11 2.15
+Neutralpeak 0 20 50 20 10 3.20 0.88 0.51 2.68
+Neutralflat 15 20 25 20 20 3.10 1.34 -0.06 1.86
+Verystronglydisagree 80 12 4 3 1 1.33 0.78 2.70 10.19
+Stronglydisagree 70 20 6 3 1 1.45 0.82 2.09 7.29
+Disagreeflat 25 35 20 15 5 2.40 1.16 0.53 2.37
+Neutraltodisagree 10 25 30 20 15 3.05 1.21 0.08 2.10
+Certainlynotdisagree 1 4 50 30 15 3.54 0.83 0.19 2.91
+Multimodal 15 5 15 25 40 3.70 1.42 -0.83 2.37
+Strongmultimodal 45 5 0 5 45 3.00 1.93 0 1.06

@@ -91,18 +91,18 @@ extract_cars <- function(cars, v) {
 #' @description Create a list of classification rules for each target viable
 #'
 #' @param ruleset An object of class rules (package arules)
-#' @param var_list A character vector with the names of target viables in the dataset which the rules came from
+#' @param var_names A character vector with the names of target variables in the dataset which the rules came from
 #' @param min_supp A scalar value between 0 and 1. Minimum support to filter rules.
 #' @param min_conf A scalar value between 0 and 1. Minimum confidence to filter rules.
 #' @param min_lift A scalar value between 0 and 1. Minimum lift to filter rules.
 #' @export
 make_cars <- function(ruleset
-                      , var_list
+                      , var_names
                       , min_supp = 0.1
                       , min_conf = 0.1
                       , min_lift = 1) {
   cars <- list()
-  for (v in var_list) {
+  for (v in var_names) {
     cars[[v]] <- arules::subset(ruleset
                                 , subset = rhs %pin% paste0(v, "=") &
                                   support >= min_supp &
@@ -111,7 +111,7 @@ make_cars <- function(ruleset
   }
 
   cars_api <- list()
-  for (v in var_list) {
+  for (v in var_names) {
     cars_api[[v]] <- extract_cars(cars[[v]], v)
 
   }
