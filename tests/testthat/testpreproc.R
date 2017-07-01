@@ -30,6 +30,33 @@ test_that("all_factor returns only factors"
           )
           })
 
+test_that("all_factor with ord = TRUE returns all ordered factors"
+          , { expect_true(
+            all(sapply(
+              all_factor(
+                data.frame(
+                  x = c(1, 2)
+                  , y = c(10, 20))
+                , ord = TRUE)
+              , class) == c("ordered", "factor"))
+          )
+          }) # only works on numbers
+
+test_that("all_factor with ord = c(TRUE, FALSE) returns correct ordered factors"
+          , { expect_identical(
+            sapply(
+              all_factor(
+                data.frame(
+                  x = c(1, 2)
+                  , y = c(10, 20))
+                , ord = c(TRUE, FALSE))
+              , class)
+            , list(x = c("ordered", "factor")
+                , y = "factor")
+              )
+          }) # only works on numbers
+
+
 test_that("missing_values finds missing values"
           , { expect_equal(2
             , sum(

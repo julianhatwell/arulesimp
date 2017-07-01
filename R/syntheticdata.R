@@ -1,3 +1,5 @@
+#' Synthesise Likert scale data using Plumpton distributions
+#'
 #' @export
 synth_plumpton <- function(var_names
                          , dists
@@ -11,6 +13,8 @@ synth_plumpton <- function(var_names
   return(as.data.frame(dt))
 }
 
+#' Compare a Likert item to Plumpton distributions
+#'
 #' @export
 compare_plumpton <- function(v, pl_dist = "all") {
   if (!(exists("plumpton_dist"))) data("plumpton_dist")
@@ -39,22 +43,21 @@ compare_plumpton <- function(v, pl_dist = "all") {
   }
 }
 
+#' Synthesise missing data patterns
+#'
 #' @export
-synth_missing <- function(df, syn_control = list(pattern = "MCAR"), prob) {
+synth_missing <- function(df, syn_control = list(pattern = "MCAR"), prob = 0.2) {
   # look up best way to implement a list control object
   if (!(syn_control$pattern %in% c("MCAR", "MAR", "MNAR"))) stop("pattern must be one of the following: MCAR, MAR, MNAR")
   if (syn_control$pattern == "MCAR") {
     dims <- c(rows = nrow(df), cols = ncol(df))
-    n <- numeric(dims["rows"] * dims["cols"])
+    n <- dims["rows"] * dims["cols"]
     nonresp <- matrix(rbinom(n = n, size = 1, prob = prob)
                       , ncol = dims["cols"]
-                      , nrow = dims["rows"])
-    result <- mapply(FUN = function(nr, d) {
-      ifelse(nr == 1
-             , d <- NA
-             , d)
-    }, nonresp, df)
-    return(result)
+
+                                        , nrow = dims["rows"])
+    df[nonresp == 1] <- NA
+    return(df)
   }
   if (syn_control$pattern == "MAR") {
     # next arg creates the char string of depend vars for fmla

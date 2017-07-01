@@ -4,12 +4,14 @@
 \alias{all_factor}
 \title{Convert all variables to factors.}
 \usage{
-all_factor(dt, refactor = FALSE)
+all_factor(dt, refactor = FALSE, ord = FALSE)
 }
 \arguments{
 \item{dt}{A data frame}
 
 \item{refactor}{Logical. Do you want it to also work on variables that are already factors? (Default is FALSE)}
+
+\item{ord}{A vector of Logical indicating which columns of dt should be converted to ordered factors. Will be recycled as necessary.}
 }
 \value{
 A copy of the input where all variables except logicals have been converted to factors

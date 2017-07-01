@@ -33,21 +33,44 @@ char_to_na <- function(dt
 #' @description arules wants only logical or factor. This function converts everything it finds into a factor
 #' @param dt A data frame
 #' @param refactor Logical. Do you want it to also work on variables that are already factors? (Default is FALSE)
+#' @param ord A vector of Logical indicating which columns of dt should be converted to ordered factors. Will be recycled as necessary.
 #' @return A copy of the input where all variables except logicals have been converted to factors
 #' @examples
 #' str(all_factor(data.frame(x = c("foo", "bar"), y = c(10, 20))))
 #' @export
 all_factor <- function(dt
-                       , refactor = FALSE) {
+                       , refactor = FALSE
+                       , ord = FALSE) {
   # refactor will apply to all vars
   # regardless if already a factor
   if (refactor) { vars <- names(dt)
   } else {
     cla <- sapply(dt, class)
     vars <- names(cla[!(cla %in% c("factor", "logical"))])
+    lenv <- length(vars)
+    if (lenv < 1) {
+      print("No variables to convert")
+      return()
+    }
+    leno <- length(ord)
+
+    # make sure the ord object is the right length
+    # don't want to raise any errors
+    o_in_v <- floor(lenv / leno)
+    o_remain <- lenv %% leno
+    if (o_remain > 0) {
+      warning("In cbind(vars, ord) :
+  number of rows of result is not a multiple of vector length (arg 2)")
+      ord <- c(rep(ord, o_in_v), ord[1:(lenv %% leno)])
+      }
+
+    # now can bind them
+    vars_ord <- data.frame(vars, ord
+                           , stringsAsFactors = FALSE)
   }
-  for (v in vars) {
-    dt[, v] <- factor(dt[, v])
+  for (i in 1:nrow(vars_ord)) {
+    dt[, vars_ord$vars[i]] <- factor(dt[, vars_ord$vars[i]]
+                                     , ordered = vars_ord$ord[i])
   }
   return(dt)
 }
