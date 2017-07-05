@@ -1,4 +1,3 @@
-
 find_char <- function(pat, dt) {
   any(!(is.na(sapply(dt, match, x = pat))))
 }

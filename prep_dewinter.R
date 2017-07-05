@@ -13,22 +13,22 @@ dist_names <- c("very_strongly_agree"
                 , "multimodal"
                 , "strong_multimodal")
 
-basic_dist <- read.table("plumptondist.txt")
+basic_dist <- read.table("dewinterdist.txt")
 names(basic_dist) <- c("dist", "pc1", "pc2", "pc3", "pc4", "pc5"
                        , "mean", "SD", "skewness", "kurtosis")
 basic_dist <- basic_dist[, -1]
 rownames(basic_dist) <- dist_names
 
-plumpton_dist <- basic_dist
+dewinter_dist <- basic_dist
 
 strag <- sample(5, size = 10000, replace = TRUE
-                , prob = plumpton_dist["strongly_agree", 1:5])
-plumpton_dist["strongly_agree", 6:9]
+                , prob = dewinter_dist["strongly_agree", 1:5])
+dewinter_dist["strongly_agree", 6:9]
 mean(strag)
 sd(strag)
 e1071::skewness(strag)
 e1071::kurtosis(strag) + 3 # e1071 returns excess kurtosis
 
-save(plumpton_dist
-     , file = "data\\plumpton_dist.rda")
-data("plumpton_dist")
+save(dewinter_dist
+     , file = "data\\dewinter_dist.rda")
+data("dewinter_dist")

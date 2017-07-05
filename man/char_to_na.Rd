@@ -7,9 +7,9 @@
 char_to_na(dt, char_string = "")
 }
 \arguments{
-\item{char_string}{A character string (default = "")}
+\item{dt}{A data frame}
 
-\item{df}{A data frame}
+\item{char_string}{A character string (default = "")}
 }
 \value{
 A copy of the input with all target strings replaced by NA

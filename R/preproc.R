@@ -3,7 +3,7 @@
 #' Replace character strings with NA.
 #'
 #' @description Useful for data with empty strings (default) or other character values to indicate missing
-#' @param df A data frame
+#' @param dt A data frame
 #' @param char_string A character string (default = "")
 #' @return A copy of the input with all target strings replaced by NA
 #' @examples
@@ -110,4 +110,71 @@ unique_values <- function(dt, which_cols) {
   })
   names(uv) <- which_cols
   return(uv)
+}
+
+#' Missing Indicator Matrix Statistics
+#'
+#' @description Counts and means of missing indicator matrix
+#'
+#' @param dt A data frame
+#' @param one_as_missing A scalar boolean. If true, 1 represents missing and 0 represents observed data. Otherwise the reverse true.
+#' @return A list of ...
+#' @examples
+#' mims(matrix(c(1, rep(0, 7), 1), ncol = 3))
+#' @export
+mimstats <- function(dt, one_as_missing = TRUE) {
+
+  # count whatever has one_as_missing value
+  is <- abs(rowSums(dt) - ncol(dt) * !(one_as_missing))
+  js <- abs(colSums(dt) - nrow(dt) * !(one_as_missing))
+
+  # collect all those with no missing
+  i_none_missing <- which(is == 0)
+  j_none_missing <- which(js == 0)
+
+
+  which_missing <- function(x) {
+    which(x == one_as_missing * 1)
+  }
+  which_not_missing <- function(x) {
+    which(x != one_as_missing * 1)
+  }
+
+  missing_for_i <- apply(dt, 1
+                         , which_missing)
+  missing_for_j <- apply(dt, 2
+                         , which_missing)
+  not_missing_for_i <- apply(dt, 1
+                         , which_not_missing)
+  not_missing_for_j <- apply(dt, 2
+                         , which_not_missing)
+
+  return(list(i_none_missing = i_none_missing
+              , j_none_missing = j_none_missing
+              , A_i = not_missing_for_i
+              , B_j = not_missing_for_j
+              , A_comp_i = missing_for_i
+              , B_comp_j = missing_for_j))
+}
+
+#' Create a missing indicator matrix for a dataset
+#'
+#' @description Converts a data frame into a missing indicator matrix
+#'
+#' @param dt A data frame
+#' @param one_as_missing A scalar boolean. If true, 1 represents missing and 0 represents observed data. Otherwise the reverse true.
+#' @return A list containing matrix of 1 and 0 having the same dimensions as the input and Carpita's measures.
+#' @examples
+#' missing_matrix(data.frame(x = c("foo", NA), y = c(NA, "bar")))
+#' @export
+missing_matrix <- function(dt, one_as_missing = TRUE) {
+  mm <- is.na(dt)
+  if (!(one_as_missing)) {
+    mm <- !(mm)
+  }
+  mm <- 1 * mm
+  mims <- mimstats(mm)
+  mims$mim <- mm
+  class(mims) <- "mim"
+  return(mims)
 }

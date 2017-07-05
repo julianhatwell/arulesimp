@@ -4,7 +4,8 @@
 \alias{synth_missing}
 \title{Synthesise missing data patterns}
 \usage{
-synth_missing(df, syn_control = list(pattern = "MCAR"), prob = 0.2)
+synth_missing(dt, syn_control = missing_control(pattern = "MCAR"),
+  prob = 0.2, exact = TRUE)
 }
 \description{
 Synthesise missing data patterns

@@ -8,6 +8,8 @@ data("responses")
 # fix this (default "")
 resp <- char_to_na(responses)
 
+mim_resp <- missing_matrix(resp)
+
 # arules apriori wants logical or factor everything
 resp <- all_factor(resp)
 
@@ -117,3 +119,37 @@ sc_pat2 <- list(pattern = "MAR" # uses principle comps to create a relationship 
 syn_mar2 <- synth_missing(df = synth_likerts
               , syn_control = sc_pat2
               , prob = 0.3) # maximum probability from dependency
+
+subrules <- rules[quality(rules)$lift > 2]
+plot(subrules)
+
+
+operacars <- extract_cars(cars[["Opera"]])
+
+chemcars <- extract_cars(cars[["Chemistry"]])
+rows_to_impute <- which(is.na(responses[["Chemistry"]]))
+
+# more mice
+iris.mis <- synth_missing(iris, prob = 0.25)
+
+#Check missing values introduced in the data
+summary(iris.mis)
+str(iris.mis)
+
+dw <- synth_dewinter(c("yes_yes"
+                       , "no_no"
+                       , "we_we")
+                     , c("very_strongly_agree"
+                         , "very_strongly_disagree"
+                         , "multimodal")
+                     , n = 100)
+dw$age <- runif(100, 0, 100)
+dw$weight <- rnorm(100, 100, 25)
+dw$height <- rpois(100, 25)
+
+synth_missing(dw
+, syn_control = missing_control(pattern = "MAR"
+                     , method = "carpita"
+                     , dep_cols = c("age", "weight", "height"))
+)
+
