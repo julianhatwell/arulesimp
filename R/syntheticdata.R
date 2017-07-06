@@ -239,7 +239,7 @@ synth_missing <- function(dt
   # remove any unobs cols for MNAR
   if (is.null(syn_control$unobs_cols)) {
     syn_control$unobs_cols <- syn_control$dep_cols
-    warning("no unobserved variables provided for pattern MNAR. removing all dependent variables")
+    warning("no unobserved variables provided for pattern MNAR. removing all covariates")
   }
   if (!is.null(syn_control$unobs_cols)) {
     for (uc in syn_control$unobs_cols) {
@@ -250,6 +250,7 @@ synth_missing <- function(dt
   col_names <- names(dt)
   result <- list(
     data = dt
+    , syn_control = syn_control
     , mim = if (deps_in_mim) {
       missing_matrix(dt) } else {
         missing_matrix(dt[, setdiff(col_names
