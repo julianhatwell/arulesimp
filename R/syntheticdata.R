@@ -56,11 +56,14 @@ compare_dewinter <- function(v, de_dist = "all") {
 #' @export
 missing_control <- function(pattern
                             , method
-                            , dep_cols
                             , nr_cols
-                            , betas) {
+                            , dep_cols
+                            , unobs_cols
+                            , beta_0
+                            , betas
+                            , prob
+                            , exact) {
   # check pattern
-
   if (missing(pattern) ||
       !(pattern %in% c("MCAR", "MAR", "MNAR"))) stop("pattern must be one of the following: MCAR, MAR, MNAR")
   if (pattern == "MCAR" &&
@@ -73,23 +76,59 @@ missing_control <- function(pattern
         !(method %in% c("princomp"
                       , "wu_ranking"
                       , "carpita")))
-    ) stop("method for MAR must be one of the following: princomp, princomp_exp, wu_ranking, carpita_exp")
+    ) stop("method for MAR must be one of the following: princomp, wu_ranking, carpita")
   # check dep_cols
   if (pattern %in% c("MAR", "MNAR") &&
     missing(dep_cols)) stop(paste("dependent variables must be specified for method", method))
+  # check nr_cols and dep_cols don't overlap for MAR
+  if (pattern == "MAR" &&
+      !missing(nr_cols) &&
+      !is.na(match(dep_cols, nr_cols))) stop("dependent variables cannot be subject to missingness when pattern is MAR")
+  if (pattern == "MAR" && !missing(unobs_cols)) stop("there should be no unobserved variables for pattern MAR")
+  # check nr_cols, dep_cols and unobs_cols work for MNAR
+  if (pattern == "MNAR") {
+    if (missing(nr_cols) &&
+        !missing(unobs_cols) &&
+        any(is.na(match(unobs_cols, dep_cols)))) stop("some variables subject to missingness are also set to unobserved. it doesn't make sense")
+    if (missing(unobs_cols) &&
+        !missing(nr_cols) &&
+        all(is.na(match(dep_cols, nr_cols)))) stop("at least one covariate must either be subject to missingness or be unobserved")
+    if (!missing(unobs_cols) &&
+        !missing(nr_cols)) {
+          if (any(!is.na(match(unobs_cols, nr_cols)))) stop("some variables subject to missingness are also set to unobserved. it doesn't make sense")
+          if (all(is.na(match(unobs_cols, dep_cols)))) warning("none of the unobserved variables were used as covariates")
+        }
+  }
   # check betas
+  if (!missing(beta_0) &&
+      (!(class(beta_0) %in% c("numeric", "integer")) ||
+      length(beta_0) > 1)) stop("beta_0 (intercept) should be a scalar numeric")
   if (pattern %in% c("MAR", "MNAR") &&
       !(missing(betas))) {
         if (length(betas) != length(dep_cols)) stop("provided betas length does not match dep_cols.")
-        if (!is.numeric(betas)) stop("provided betas must be numeric vector")
+        if (!(is.numeric(betas) || is.integer(betas))) stop("provided betas must be numeric vector")
+  if (any(abs(c(beta_0, betas)) > 3)) warning("coefficients with an absolute value greater than 3 tend to overwhelm the probability generating steps")
   }
+  # check prob or exact
+  if ((missing(prob) && missing(exact)) ||
+      (!missing(prob) && !missing(exact))) stop("provide either a prob between 0 and 1 or an exact count > 0 and < the total number of data points subject to missingness but not both")
+  if (!missing(prob) &&
+      (!(class(prob) %in% c("numeric", "integer")) ||
+      prob < 0 || prob > 1 || length(prob) > 1)) stop("provide a scalar numeric prob between 0 and 1")
+  if (!missing(exact) &&
+      (!(class(exact) != "integer") ||
+       exact < 1 || length(prob) > 1)) stop("provide a scalar integer exact > 0 and < number of data points subject to missingness")
   # construct
   mc <- list(pattern = pattern)
   class(mc) <- "missyn_control"
   if (!missing(method)) mc$method <- method
-  if (!missing(dep_cols)) mc$dep_cols <- dep_cols
   if (!missing(nr_cols)) mc$nr_cols <- nr_cols
+  if (!missing(dep_cols)) mc$dep_cols <- dep_cols
+  if (!missing(unobs_cols)) mc$unobs_cols <- unobs_cols
+  if (!missing(beta_0)) mc$beta_0 <- beta_0
   if (!missing(betas)) mc$betas <- betas
+  if (!missing(prob)) mc$prob <- prob
+  if (!missing(exact)) mc$exact <- exact
   return(mc)
 }
 
@@ -97,11 +136,18 @@ missing_control <- function(pattern
 #'
 #' @export
 synth_missing <- function(dt
-  , syn_control = missing_control(pattern = "MCAR")
-  , prob = 0.2
-  , exact = TRUE
-  ) {
+  , syn_control = missing_control(pattern = "MCAR"
+                                  , prob = 0.2)
+  , plot_probs = FALSE
+  , deps_in_mim = FALSE) {
   if (!(class(syn_control) == "missyn_control")) stop("please provide control paramaters with missing_control function")
+  if (is.null(syn_control$dep_cols)) syn_control$nr_cols <- names(dt)
+  if (is.null(syn_control$nr_cols)) {
+    syn_control$nr_cols <- names(dt)[!(names(dt) %in% syn_control$dep_cols)]
+    warning(paste("no variables specified for non-response. using all variables not specified as covariates:"
+                  , paste(syn_control$nr_cols, collapse = ", "))
+            , "")
+  }
   dims <- c(rows = nrow(dt)
             , cols = if (is.null(syn_control$nr_cols)) {
               ncol(dt) - if (is.null(syn_control$dep_cols)) {
@@ -111,7 +157,13 @@ synth_missing <- function(dt
                 length(syn_control$nr_cols)
               })
   n <- dims["rows"] * dims["cols"]
-  nonresp_n <- round(n * prob)
+  # determine the number of data points to be set missing
+  nonresp_n <- if (!is.null(syn_control$prob)) {
+    round(n * syn_control$prob)
+  } else {
+    syn_control$exact
+  }
+
   if (syn_control$pattern == "MCAR") {
     nonresp_vector <- c(rep(1, nonresp_n), rep(0, n - nonresp_n))
     nonresp_vector <- sample(nonresp_vector)
@@ -120,41 +172,50 @@ synth_missing <- function(dt
                       , ncol = dims["cols"]
                       , nrow = dims["rows"])
   }
-  if (syn_control$pattern == "MAR") {
-    if (is.null(syn_control$nr_cols)) {
-      syn_control$nr_cols <- names(dt)[!(names(dt) %in% syn_control$dep_cols)]
-      warning(paste("no columns specified for non-response. using any columns not specified as MAR covariates:"
-                    , paste(syn_control$nr_cols, collapse = ", "))
-                    , "")
-    }
+  if (syn_control$pattern %in% c("MAR", "MNAR")) {
     if (syn_control$method == "princomp") {
-      if (any(sapply(dt[, syn_control$dep_cols], class) != "numeric")) warning("some dep_cols are non-numeric. attempting to convert for princomp")
-      dt[, syn_control$dep_cols] <- sapply(dt[, syn_control$dep_cols], function(x) {
-        as.numeric(as.vector(x))
-      })
+      if (!(all(sapply(dt[, syn_control$dep_cols], class) %in%
+                c("numeric", "integer")))) {
+        warning("some dep_cols are non-numeric. attempting to convert for princomp")
+        dt[, syn_control$dep_cols] <- sapply(dt[, syn_control$dep_cols], function(x) {
+          as.numeric(as.vector(x))
+        })
+      }
       # creates the char string of depend vars for fmla
-      dep_cols <- sub("\\+$"
-                      , ""
-                      , paste(syn_control$dep_cols, "+"
-                              , collapse = " "))
+      fmla <- sub("\\+$"
+                  , ""
+                  , paste(syn_control$dep_cols, "+"
+                          , collapse = " "))
       # use first principle component of combined dep cols
-      fmla <- as.formula(paste("~", dep_cols))
+      fmla <- as.formula(paste("~", fmla))
       pr <- princomp(fmla, data = dt)
       raw_prob <- exp(pr$scores[, 1]) /
-          (1 + exp(pr$scores[, 1]))
+        (1 + exp(pr$scores[, 1]))
     }
     if (syn_control$method == "wu_ranking") {
-      if (sum(is.na(dt[, dep_cols])) > 0) stop("covariates for method wu_ranking must not contain NA values")
-      raw_prob <- rank(rowSums(dt[, syn_control$dep_cols])) /
+      if (sum(is.na(dt[, syn_control$dep_cols])) > 0) stop("covariates for method wu_ranking must not contain NA values")
+      raw_prob <- rank(rowSums(dt[
+        , syn_control$dep_cols])) /
         nrow(dt)
     }
-    # TO DO betas
     if (syn_control$method == "carpita") {
       if (sum(is.na(dt[, syn_control$dep_cols])) > 0) stop("covariates for method carpita must not contain NA vallues")
-      dep_cols <- sapply(dt[, syn_control$dep_cols], scale)
-      carpita_coefs <- rowSums(dep_cols)
-      raw_prob <- exp(carpita_coefs) /
-                (1 + exp(carpita_coefs))
+      dep_cols <- if (length(syn_control$dep_cols) == 1) {
+        as.vector(as.vector(scale(dt[, syn_control$dep_cols])))
+      } else {
+        sapply(dt[, syn_control$dep_cols], scale)
+      }
+      if (is.null(syn_control$beta_0)) {
+        syn_control$beta_0 <- 0
+        warning("no beta_0 (intercept) provided. setting beta_0 = 0")
+      }
+      if (is.null(syn_control$betas)) {
+        syn_control$betas <- rep(1, length(syn_control$dep_cols))
+        warning("no beta coefficients provided. setting all coefficients = 1")
+      }
+      carpita_model <- cbind(1, dep_cols) %*% c(syn_control$beta_0, syn_control$betas)
+      raw_prob <- exp(carpita_model) /
+                (1 + exp(carpita_model))
     }
     nonresp_vector <- rep(0, n)
     probs <- rep(raw_prob, dims["cols"])
@@ -171,16 +232,41 @@ synth_missing <- function(dt
                       , ncol = dims["cols"]
                       , nrow = dims["rows"])
   }
-  # TO DO MNAR here
-
-  dt
-  if (is.null(syn_control$nr_cols)) {
-    dt[nonresp == 1] <- NA
-  } else {
-    dt[nonresp == 1, syn_control$nr_cols] <- NA
+  # go through columns and set missing where indicated
+  for (i in 1:dims["cols"]) {
+      dt[nonresp[, i] == 1, syn_control$nr_cols[i]] <- NA
+    }
+  # remove any unobs cols for MNAR
+  if (is.null(syn_control$unobs_cols)) {
+    syn_control$unobs_cols <- syn_control$dep_cols
+    warning("no unobserved variables provided for pattern MNAR. removing all dependent variables")
   }
-  return(dt)
+  if (!is.null(syn_control$unobs_cols)) {
+    for (uc in syn_control$unobs_cols) {
+      dt[[uc]] <- NULL
+    }
+  }
+  # names of cols after unobserved are removed
+  col_names <- names(dt)
+  result <- list(
+    data = dt
+    , mim = if (deps_in_mim) {
+      missing_matrix(dt) } else {
+        missing_matrix(dt[, setdiff(col_names
+                                    , syn_control$dep_cols)])
+      }
+    , mi_probs = raw_prob
+  )
+  if (plot_probs) {
+    if (syn_control$pattern == "MCAR") {
+      warning("prob for MCAR is uniform. plot an image of the missing indicator matrix instead")
+    } else {
+      result$dplot <-
+        lattice::densityplot(~raw_prob
+                 , xlab = paste("Probability of missingness\nassigned by"
+                              , syn_control$pattern
+                              , syn_control$method))
+    }
+  }
+  return(result)
 }
-
-# testing
-# MNAR

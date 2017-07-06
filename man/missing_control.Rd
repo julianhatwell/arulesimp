@@ -4,16 +4,17 @@
 \alias{missing_control}
 \title{Control parameters for synth_missing}
 \usage{
-missing_control(pattern, method, dep_cols, nr_cols, betas)
+missing_control(pattern, method, nr_cols, dep_cols, unobs_cols, beta_0, betas,
+  prob, exact)
 }
 \arguments{
 \item{pattern}{A character string indicating whether missing data will occur in a MCAR, MAR or MNAR pattern}
 
 \item{method}{Optional character string. Allowed values are "princomp", "carpita" and "wu_ranking" if pattern = MAR, and MNAR still TO DO}
 
-\item{dep_cols}{A character vector containing names of columns to be used as covariates for patterns MAR and MNAR}
-
 \item{nr_cols}{A character vector containing names of columns subject to missingness. If empty, all will be used.}
+
+\item{dep_cols}{A character vector containing names of columns to be used as covariates for patterns MAR and MNAR}
 
 \item{betas}{A numeric vector of length = length(dep_cols) of coefficients for covariates to affect the missingness. Recommded values -3 < x < 3.}
 }

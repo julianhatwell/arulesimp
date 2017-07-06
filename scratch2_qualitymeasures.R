@@ -39,7 +39,13 @@ alpha_ci <- function(a, n, p, sig = 0.05) {
   return(c(ci_lower, ci_upper))
 }
 
+# ordinary t-test
+as.vector(t.test(rnorm(100))$conf.int)
+
+
 # don't forget to quote mse ratio
+
+# Scale Score Error requires known and imputed
 
 # alpha confidence intervals by using bootstrapping of funciton in psych
 

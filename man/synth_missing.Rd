@@ -4,8 +4,8 @@
 \alias{synth_missing}
 \title{Synthesise missing data patterns}
 \usage{
-synth_missing(dt, syn_control = missing_control(pattern = "MCAR"),
-  prob = 0.2, exact = TRUE)
+synth_missing(dt, syn_control = missing_control(pattern = "MCAR", prob = 0.2),
+  plot_probs = FALSE, deps_in_mim = FALSE)
 }
 \description{
 Synthesise missing data patterns
