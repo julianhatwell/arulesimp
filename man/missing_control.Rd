@@ -16,7 +16,15 @@ missing_control(pattern, method, nr_cols, dep_cols, unobs_cols, beta_0, betas,
 
 \item{dep_cols}{A character vector containing names of columns to be used as covariates for patterns MAR and MNAR}
 
+\item{unobs_cols}{A character vector containing names of covariates that will not be included in the output.}
+
+\item{beta_0}{A numeric scalar for the intercept term in carpita models}
+
 \item{betas}{A numeric vector of length = length(dep_cols) of coefficients for covariates to affect the missingness. Recommded values -3 < x < 3.}
+
+\item{prob}{A numeric scalar with value 0 < prob < 1. mutually exclusive with exact. specifies the proportion of included variables that will contain missingness.}
+
+\item{exact}{An integer scalar with value > 0 and < maximum number of data points subject to missingness. specifies an exact number of data points to substitue. mutually exclusive with prob.}
 }
 \description{
 Control the parameters for generating patterns of missing data

@@ -4,10 +4,10 @@
 \alias{find_rows_to_impute}
 \title{Find rows to impute}
 \usage{
-find_rows_to_impute(df, which_cols)
+find_rows_to_impute(dt, which_cols)
 }
 \arguments{
-\item{df}{A data frame}
+\item{dt}{A data frame or an object of class mim}
 
 \item{which_cols}{A vector of variable names to search.}
 }

@@ -153,14 +153,33 @@ dw$height <- rpois(100, 25)
 #                      , dep_cols = c("age", "weight", "height"))
 # )
 
-dw_mis_mar <- synth_missing(dw
+dw_mis_mnar <- synth_missing(dw
   , syn_control = missing_control(
                   pattern = "MNAR"
                   , method = "wu_ranking"
                   , dep_cols = c("age", "weight", "height")
                   #, unobs_cols = c("age", "weight", "height")
-                  , beta_0 = -0.5
-                  , betas = c(1, -1, 0.2)
                   , prob = 0.3
   )
 , plot_probs = TRUE)
+
+# to do a double round of wu:
+
+dw_mis_mar <- synth_missing(dw
+                            , syn_control = missing_control(
+                              pattern = "MAR"
+                              , method = "wu_ranking"
+                              , nr_cols = "yes_yes"
+                              , dep_cols = "age"
+                              , prob = 0.3
+                            )
+                            , plot_probs = TRUE)
+dw_mis_mar2 <- synth_missing(dw_mis_mar$data
+                            , syn_control = missing_control(
+                              pattern = "MAR"
+                              , method = "wu_ranking"
+                              , nr_cols = c("no_no", "we_we")
+                              , dep_cols = c("weight", "height")
+                              , prob = 0.3
+                            )
+                            , plot_probs = TRUE)

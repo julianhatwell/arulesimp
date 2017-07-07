@@ -1,5 +1,19 @@
 # clean up and preproc functions
 
+# could do with a routine check for data frames all numeric, numeric matrix, likert type (e.g. all same range)
+
+#' Routine check for presence of missing data
+#'
+no_missing_check <- function(dt) {
+  if (sum(is.na(dt)) == 0) {
+    warning("input has no missing data. no mim to return")
+    return(TRUE)
+  } else {
+    return(FALSE)
+  }
+}
+
+
 #' Replace character strings with NA.
 #'
 #' @description Useful for data with empty strings (default) or other character values to indicate missing
@@ -123,7 +137,6 @@ unique_values <- function(dt, which_cols) {
 #' mims(matrix(c(1, rep(0, 7), 1), ncol = 3))
 #' @export
 mimstats <- function(dt, one_as_missing = TRUE) {
-
   # count whatever has one_as_missing value
   is <- abs(rowSums(dt) - ncol(dt) * !(one_as_missing))
   js <- abs(colSums(dt) - nrow(dt) * !(one_as_missing))
@@ -169,6 +182,7 @@ mimstats <- function(dt, one_as_missing = TRUE) {
 #' @export
 missing_matrix <- function(dt, one_as_missing = TRUE) {
   mm <- is.na(dt)
+  if(no_missing_check(dt)) return()
   if (!(one_as_missing)) {
     mm <- !(mm)
   }

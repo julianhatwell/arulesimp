@@ -51,7 +51,11 @@ compare_dewinter <- function(v, de_dist = "all") {
 #' @param method Optional character string. Allowed values are "princomp", "carpita" and "wu_ranking" if pattern = MAR, and MNAR still TO DO
 #' @param dep_cols A character vector containing names of columns to be used as covariates for patterns MAR and MNAR
 #' @param nr_cols A character vector containing names of columns subject to missingness. If empty, all will be used.
+#' @param unobs_cols A character vector containing names of covariates that will not be included in the output.
+#' @param beta_0 A numeric scalar for the intercept term in carpita models
 #' @param betas A numeric vector of length = length(dep_cols) of coefficients for covariates to affect the missingness. Recommded values -3 < x < 3.
+#' @param prob A numeric scalar with value 0 < prob < 1. mutually exclusive with exact. specifies the proportion of included variables that will contain missingness.
+#' @param exact An integer scalar with value > 0 and < maximum number of data points subject to missingness. specifies an exact number of data points to substitue. mutually exclusive with prob.
 #'
 #' @export
 missing_control <- function(pattern
@@ -194,8 +198,11 @@ synth_missing <- function(dt
     }
     if (syn_control$method == "wu_ranking") {
       if (sum(is.na(dt[, syn_control$dep_cols])) > 0) stop("covariates for method wu_ranking must not contain NA values")
-      raw_prob <- rank(rowSums(dt[
-        , syn_control$dep_cols])) /
+      raw_prob <- if (length(syn_control$dep_cols) == 1) {
+        rank(dt[, syn_control$dep_cols])
+      } else { rank(rowSums(dt[
+        , syn_control$dep_cols]))
+        } /
         nrow(dt)
     }
     if (syn_control$method == "carpita") {
@@ -237,7 +244,8 @@ synth_missing <- function(dt
       dt[nonresp[, i] == 1, syn_control$nr_cols[i]] <- NA
     }
   # remove any unobs cols for MNAR
-  if (is.null(syn_control$unobs_cols)) {
+  if (syn_control$pattern == "MNAR" &&
+      is.null(syn_control$unobs_cols)) {
     syn_control$unobs_cols <- syn_control$dep_cols
     warning("no unobserved variables provided for pattern MNAR. removing all covariates")
   }
