@@ -15,6 +15,7 @@ LazyData: true
 Imports: arules,
     arulesViz,
     psych,
-    lattice
+    lattice,
+    corrr
 RoxygenNote: 6.0.1
 Suggests: testthat

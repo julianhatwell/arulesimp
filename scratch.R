@@ -183,3 +183,58 @@ dw_mis_mar2 <- synth_missing(dw_mis_mar$data
                               , prob = 0.3
                             )
                             , plot_probs = TRUE)
+
+
+dw_mis_mnar <- synth_missing(dw
+                             , syn_control = missing_control(
+                               pattern = "MNAR"
+                               , method = "carpita"
+                               , dep_cols = c("we_we", "age", "weight", "height")
+                               , unobs_cols = c("weight", "height")
+                               , mm_cols = c("yes_yes", "no_no", "we_we")
+                               , prob = 0.3
+                             )
+                             , plot_probs = TRUE
+                             , deps_in_mim = TRUE)
+
+dw_mis_mnar <- synth_missing(dw
+                             , syn_control = missing_control(
+                               pattern = "MNAR"
+                               , method = "carpita"
+                               , nr_cols = c("yes_yes", "no_no", "we_we")
+                               , dep_cols = c("we_we", "age", "weight", "height")
+                               , unobs_cols = c("weight", "height")
+                               , mm_cols = c("yes_yes", "no_no", "we_we")
+                               , prob = 0.3
+                             )
+                             , plot_probs = TRUE)
+
+LikertImpute(dw_mis_mnar$data, dt_mim = dw_mis_mnar$mim)
+LikertImpute(dw_mis_mnar$data, dt_mim = dw_mis_mnar$mim, rounding = nd_round)
+LikertImpute(dw_mis_mnar$data, dt_mim = dw_mis_mnar$mim, rounding = floor)
+LikertImpute(dw_mis_mnar$data, dt_mim = dw_mis_mnar$mim, rounding = ceiling)
+LikertImpute(dw_mis_mnar$data, dt_mim = dw_mis_mnar$mim, rounding = round)
+
+LikertImpute(dw_mis_mnar$data
+             , dt_mim = dw_mis_mnar$mim
+             , method = "CIM"
+             , rounding = nd_round)
+LikertImpute(dw_mis_mnar$data
+             , dt_mim = dw_mis_mnar$mim
+             , method = "TW"
+             , rounding = nd_round)
+LikertImpute(dw_mis_mnar$data
+             , dt_mim = dw_mis_mnar$mim
+             , method = "ICS"
+             , rounding = nd_round)
+
+# quality measures
+# ordinary t-test
+as.vector(t.test(rnorm(100))$conf.int)
+
+
+# don't forget to quote mse ratio
+
+# Scale Score Error requires known and imputed
+
+# alpha confidence intervals by using bootstrapping of funciton in psych

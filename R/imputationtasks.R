@@ -62,19 +62,34 @@ ij_means <- function(dt) {
   if (class(dt) != "data.frame") stop("dt must be a data frame")
   i_means <- rowMeans(dt, na.rm = TRUE)
   j_means <- colMeans(dt, na.rm = TRUE)
+  i_sums <- rowSums(dt, na.rm = TRUE)
+  j_sums <- colSums(dt, na.rm = TRUE)
+  num <- sum(!is.na(dt))
+  t_mean <- sum(i_sums) / num
 
   # for each i, mean of the j_means for each observed j
   if (sum(is.na(dt)) == 0) {
     ij_means <- rep(mean(j_means), nrow(dt))
   } else {
     dt_mim <- missing_matrix(dt)
-    ij_means <- lapply(1:nrow(dt), function(x) {
+    ij_means <- unlist(lapply(1:nrow(dt), function(x) {
       mean(j_means[dt_mim$A_i[[x]]])
-      })
-    }
+      }))
+  }
+  # correlations
+  corr <- corrr::correlate(dt)
+  corrs <- list()
+  for (nm in corr$rowname) {
+    corrs[[nm]] <- unlist(corr[corr$rowname == nm, -1])
+  }
   return(list(i_means = i_means
               , j_means = j_means
-              , ij_means = ij_means))
+              , ij_means = ij_means
+              , i_sums = i_sums
+              , j_sums = j_sums
+              , num = num
+              , t_mean = t_mean
+              , corrs = corrs))
 }
 
 #' Non-deterministic Rounding
@@ -98,13 +113,40 @@ nd_round <- function(x) {
 #' @param rounding A scalar character, indicating the type of rounding to use
 #'
 #' @export
-PMImpute <- function(dt, rounding = "nd") {
-  dt_mim <- missing_matrix(dt)
-  ij <- ij_means(dt)
-  cols_to_impute <- find_cols_to_impute(dt)
-  for (i in 1:nrow(dt)) {
-    dt[i, cols_to_impute[[i]]] <- ij$i_means[i]
+LikertImpute <- function(dt, dt_mim
+                         , method = "PM"
+                         , rounding
+                         , top_code = FALSE
+                         , bottom_code = FALSE) {
+  if (missing(dt_mim)) dt_mim <- missing_matrix(dt)
+  ij <- ij_means(dt[, dimnames(dt_mim$mim)[[2]]])
+
+  for (j in names(dt_mim$B_comp_j)) {
+
+    means <- switch(method
+      , PM = ij$i_means
+      , CIM = ij$i_means /
+        ij$ij_means *
+        ij$j_means[j]
+      , TW = ij$i_means +
+        ij$j_means[j] - ij$t_mean
+      , ICS = sapply(1:nrow(dt), function(x) {
+          if (length(dt_mim$A_i[[x]]) == 0 ||
+              all(names(dt_mim$A_i[[x]]) == j)) {
+            NA
+          } else {
+            dt[x, names(ij$corrs[[j]][names(which.max(ij$corrs[[j]][names(dt_mim$A_i[[x]])]))])]
+            }
+        })
+      )
+
+    to_impute <- means[dt_mim$B_comp_j[[j]]]
+    if (!missing(rounding) && method != "ICS") to_impute <- do.call(rounding, list(to_impute))
+    dt[[j]][dt_mim$B_comp_j[[j]]] <- to_impute
   }
+  if (top_code) dt <- sapply(dt, function(x) ifelse(x > top_code, top_code, x))
+  if (bottom_code) dt <- sapply(dt, function(x) ifelse(x < bottom_code, bottom_code, x))
+
   return(dt)
 }
 

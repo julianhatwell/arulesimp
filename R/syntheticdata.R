@@ -63,6 +63,7 @@ missing_control <- function(pattern
                             , nr_cols
                             , dep_cols
                             , unobs_cols
+                            , mm_cols
                             , beta_0
                             , betas
                             , prob
@@ -75,15 +76,15 @@ missing_control <- function(pattern
    , missing(dep_cols)
    , missing(betas)))) warning("pattern is MCAR. other missing_control parameters will be ignored.")
   # check method
-  if ((pattern == "MAR" && missing(method))
-     || (pattern == "MAR" &&
+  if ((pattern %in% c("MAR", "MNAR") && missing(method))
+     || (pattern %in% c("MAR", "MNAR") &&
         !(method %in% c("princomp"
                       , "wu_ranking"
                       , "carpita")))
-    ) stop("method for MAR must be one of the following: princomp, wu_ranking, carpita")
+    ) stop(paste("method for pattern", pattern, "must be one of the following: princomp, wu_ranking, carpita"))
   # check dep_cols
   if (pattern %in% c("MAR", "MNAR") &&
-    missing(dep_cols)) stop(paste("dependent variables must be specified for method", method))
+    missing(dep_cols)) stop(paste("dependent variables must be specified for pattern", pattern))
   # check nr_cols and dep_cols don't overlap for MAR
   if (pattern == "MAR" &&
       !missing(nr_cols) &&
@@ -91,18 +92,24 @@ missing_control <- function(pattern
   if (pattern == "MAR" && !missing(unobs_cols)) stop("there should be no unobserved variables for pattern MAR")
   # check nr_cols, dep_cols and unobs_cols work for MNAR
   if (pattern == "MNAR") {
+
     if (missing(nr_cols) &&
         !missing(unobs_cols) &&
         any(is.na(match(unobs_cols, dep_cols)))) stop("some variables subject to missingness are also set to unobserved. it doesn't make sense")
     if (missing(unobs_cols) &&
         !missing(nr_cols) &&
-        all(is.na(match(dep_cols, nr_cols)))) stop("at least one covariate must either be subject to missingness or be unobserved")
+        all(is.na(match(dep_cols, nr_cols)))) stop("at least one covariate must either be subject to missingness or be unobserved for pattern MNAR")
     if (!missing(unobs_cols) &&
         !missing(nr_cols)) {
           if (any(!is.na(match(unobs_cols, nr_cols)))) stop("some variables subject to missingness are also set to unobserved. it doesn't make sense")
-          if (all(is.na(match(unobs_cols, dep_cols)))) warning("none of the unobserved variables were used as covariates")
+          if (all(is.na(match(unobs_cols, dep_cols))) &&
+              all(is.na(match(dep_cols, nr_cols)))) stop("at least one covariate must either be subject to missingness or be unobserved for pattern MNAR")
         }
   }
+  # check mm_cols
+  if (!missing(unobs_cols) &&
+      !missing(mm_cols) &&
+      !is.na(any(match(unobs_cols, mm_cols)))) stop("some unobserved variables overlap with list to include in missing indicator matrix")
   # check betas
   if (!missing(beta_0) &&
       (!(class(beta_0) %in% c("numeric", "integer")) ||
@@ -129,6 +136,7 @@ missing_control <- function(pattern
   if (!missing(nr_cols)) mc$nr_cols <- nr_cols
   if (!missing(dep_cols)) mc$dep_cols <- dep_cols
   if (!missing(unobs_cols)) mc$unobs_cols <- unobs_cols
+  if (!missing(mm_cols)) mc$mm_cols <- mm_cols
   if (!missing(beta_0)) mc$beta_0 <- beta_0
   if (!missing(betas)) mc$betas <- betas
   if (!missing(prob)) mc$prob <- prob
@@ -255,14 +263,19 @@ synth_missing <- function(dt
     }
   }
   # names of cols after unobserved are removed
-  col_names <- names(dt)
+  col_names <- if(is.null(syn_control$mm_cols)) {
+    names(dt)
+  } else {
+    syn_control$mm_cols
+  }
   result <- list(
     data = dt
     , syn_control = syn_control
     , mim = if (deps_in_mim) {
       missing_matrix(dt) } else {
         missing_matrix(dt[, setdiff(col_names
-                                    , syn_control$dep_cols)])
+                                    , setdiff(syn_control$dep_cols
+                                              , syn_control$mm_cols))])
       }
     , mi_probs = raw_prob
   )

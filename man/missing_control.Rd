@@ -4,8 +4,8 @@
 \alias{missing_control}
 \title{Control parameters for synth_missing}
 \usage{
-missing_control(pattern, method, nr_cols, dep_cols, unobs_cols, beta_0, betas,
-  prob, exact)
+missing_control(pattern, method, nr_cols, dep_cols, unobs_cols, mm_cols, beta_0,
+  betas, prob, exact)
 }
 \arguments{
 \item{pattern}{A character string indicating whether missing data will occur in a MCAR, MAR or MNAR pattern}
