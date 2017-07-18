@@ -16,6 +16,8 @@ Imports: arules,
     arulesViz,
     psych,
     lattice,
-    corrr
+    corrr,
+    lavaan
 RoxygenNote: 6.0.1
-Suggests: testthat
+Suggests: testthat,
+    VIM

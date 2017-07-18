@@ -17,7 +17,7 @@ all_factor(dt, refactor = FALSE, ord = FALSE)
 A copy of the input where all variables except logicals have been converted to factors
 }
 \description{
-arules wants only logical or factor. This function converts everything it finds into a factor
+Convenience function to converts everything it finds into a factor
 }
 \examples{
 str(all_factor(data.frame(x = c("foo", "bar"), y = c(10, 20))))

@@ -2,10 +2,10 @@
 % Please edit documentation in R/syntheticdata.R
 \name{synth_dewinter}
 \alias{synth_dewinter}
-\title{Synthesise Likert scale data using dewinter distributions}
+\title{Synthesise Likert Scale data from empirical distributions}
 \usage{
 synth_dewinter(var_names, dists, n = 10000)
 }
 \description{
-Synthesise Likert scale data using dewinter distributions
+Synthesise Likert Scale data using distributions from de Winter et al
 }

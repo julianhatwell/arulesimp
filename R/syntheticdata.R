@@ -1,14 +1,23 @@
-#' Synthesise Likert scale data using dewinter distributions
+#' Synthesise Likert Scale data from empirical distributions
+#'
+#' Synthesise Likert Scale data using distributions from de Winter et al
 #'
 #' @export
 synth_dewinter <- function(var_names
                          , dists
                          , n = 10000) {
-  if (!(exists("dewinter_dist"))) data("dewinter_dist")
+  if(!(exists("ari.env")))
+    ari.env <<- new.env(parent = emptyenv())
+  if (!(exists("dewinter_dist", envir = ari.env))) data("dewinter_dist", envir = ari.env)
+  if (length(dists) != length(var_names)) {
+    warning("dists vector is not the same length as var_names vector. recycling")
+    while (length(dists) < length(var_names)) dists <- rep(dists, 2)
+    if (length(dists) > length(var_names)) dists <- dists[seq_along(var_names)]
+  }
   dt <- list()
   for (i in seq_along(var_names)) {
     dt[[ var_names[i] ]] <- sample(5, size = n, replace = TRUE
-                                   , prob = dewinter_dist[dists[i], 1:5])
+                                   , prob = ari.env$dewinter_dist[dists[i], 1:5])
   }
   return(as.data.frame(dt))
 }
@@ -17,8 +26,9 @@ synth_dewinter <- function(var_names
 #'
 #' @export
 compare_dewinter <- function(v, de_dist = "all") {
-  if (!(exists("dewinter_dist"))) data("dewinter_dist")
-
+  if(!(exists("ari.env")))
+    ari.env <<- new.env(parent = emptyenv())
+  if (!(exists("dewinter_dist", envir = ari.env))) data("dewinter_dist", envir = ari.env)
   v <- v[!(is.na(v))]
 
   v_stats <- c(mean(v)
@@ -27,15 +37,15 @@ compare_dewinter <- function(v, de_dist = "all") {
                , e1071::kurtosis(v) + 3) # e1071 gives excess kurtosis
 
   if (de_dist == "all") {
-    de_stats <- t(dewinter_dist[, 6:9])
+    de_stats <- t(ari.env$dewinter_dist[, 6:9])
     result <- v_stats - de_stats
     result <- rbind(result)
     return(result)
   } else {
-    if (!(de_dist %in% rownames(dewinter_dist))) {
-      stop("de_dist must be a dewinter distribution. See rownames(\"dewinter_dist\") for options")
+    if (!(de_dist %in% rownames(ari.env$dewinter_dist))) {
+      stop("de_dist must be a dewinter distribution. See rownames(\"ari.env$dewinter_dist\") for options")
     } else {
-      de_stats <- as.numeric(dewinter_dist[de_dist, 6:9])
+      de_stats <- as.numeric(ari.env$dewinter_dist[de_dist, 6:9])
       result <- data.frame(v_stats, de_stats, dif_stats = v_stats - de_stats)
       rownames(result) <- c("mean", "sd", "skewness", "kurtosis")
       return(result)
@@ -153,7 +163,6 @@ synth_missing <- function(dt
   , plot_probs = FALSE
   , deps_in_mim = FALSE) {
   if (!(class(syn_control) == "missyn_control")) stop("please provide control paramaters with missing_control function")
-  if (is.null(syn_control$dep_cols)) syn_control$nr_cols <- names(dt)
   if (is.null(syn_control$nr_cols)) {
     syn_control$nr_cols <- names(dt)[!(names(dt) %in% syn_control$dep_cols)]
     warning(paste("no variables specified for non-response. using all variables not specified as covariates:"
@@ -277,7 +286,11 @@ synth_missing <- function(dt
                                     , setdiff(syn_control$dep_cols
                                               , syn_control$mm_cols))])
       }
-    , mi_probs = raw_prob
+    , mi_probs = if (syn_control$pattern == "MCAR") {
+        rep(syn_control$prob, dims["rows"])
+      } else {
+        raw_prob
+      }
   )
   if (plot_probs) {
     if (syn_control$pattern == "MCAR") {
@@ -291,4 +304,109 @@ synth_missing <- function(dt
     }
   }
   return(result)
+}
+
+
+create_rhemtulla_cutpoints <- function() {
+  if(!(exists("ari.env")))
+  ari.env <<- new.env(parent = emptyenv())
+
+  ari.env$rhemtulla_thresholds <- list(
+    symmetric = list()
+    , moderate_asym = list()
+    , severe_asym = list()
+  )
+
+  ari.env$rhemtulla_thresholds$symmetric[[2]] <- 0.00
+  ari.env$rhemtulla_thresholds$symmetric[[3]] <- c(-.83, .83)
+  ari.env$rhemtulla_thresholds$symmetric[[5]] <- c(-1.50, -.50, .50, 1.50)
+  ari.env$rhemtulla_thresholds$symmetric[[7]] <- c(-1.79, -1.07, -.36, .36, 1.07, 1.79)
+  ari.env$rhemtulla_thresholds$moderate_asym[[2]] <- .36
+  ari.env$rhemtulla_thresholds$moderate_asym[[3]] <- c(-.50, .76)
+  ari.env$rhemtulla_thresholds$moderate_asym[[5]] <- c(-.70, .39, 1.16, 2.05)
+  ari.env$rhemtulla_thresholds$moderate_asym[[7]] <- c(-1.43, -.43, .38, .94, 1.44, 2.54)
+  ari.env$rhemtulla_thresholds$severe_asym[[2]] <- 1.04
+  ari.env$rhemtulla_thresholds$severe_asym[[3]] <- c(.58, 1.13)
+  ari.env$rhemtulla_thresholds$severe_asym[[5]] <- c(.05, .44, .84, 1.34)
+  ari.env$rhemtulla_thresholds$severe_asym[[7]]<- c(-.25, .13, .47, .81, 1.18, 1.64)
+}
+
+remove_rhemtulla_cutpoints <- function() {
+  if (exists("ari.env")) rm(ari.env, envir = .GlobalEnv)
+}
+
+
+#' Normal to Item Scale
+#'
+#' Discretize normally distributed data to ordinal scales based on desired distribution and number of levels
+#'
+#' @export
+cut_rhemtulla <- function(dt, dist = "symmetric", levs = 5) {
+  if (!(dist %in% c("symmetric", "moderate_asym", "severe_asym"))) stop("dist must be a character scalar or vector. only \"symmetric\", \"moderate_asym\" and \"severe_asym\" are allowed")
+  if (!(all(levs %in% c(2, 3, 5, 7)))) stop("levs must be an integer scalar or vector. only 2, 3, 5, and 7 are allowed")
+  if (!(all(sapply(dt, class) == "numeric"))) stop("only real numeric values allowed. integers won't be processed")
+  if (length(dist) != 1 || length(levs) != 1) stop("dist and levs must be scalar of length = 1")
+
+  on.exit(remove_rhemtulla_cutpoints())
+  create_rhemtulla_cutpoints()
+  if (class(dt) == "data.frame") {
+    return(data.frame(lapply(dt, function(x) {
+        cut(x, breaks=c(-Inf
+                        , ari.env$rhemtulla_thresholds[[dist]][[levs]]
+                        , Inf)
+            , labels=FALSE)
+        })))
+  } else {
+    return(cut(dt, breaks=c(-Inf
+                           , ari.env$rhemtulla_thresholds[[dist]][[levs]]
+                           , Inf)
+               , labels=FALSE))
+  }
+}
+
+#' Synthesise Likert Scale data from latent variable models
+#'
+#' Synthesise Likert Scale data using method from Wu
+#'
+#' @export
+synth_wu_data <- function(model, sample_size, seed) {
+  if (!(missing(seed))) set.seed(seed) # for reproducibility
+
+  # a function that will generate the requested sample size
+  # already discretized and ready to go
+  synth_wu <- function(model, cut = TRUE, rhum_dist = "symmetric", sample_size) {
+    wu_data <- lavaan::simulateData(model, sample.nobs=sample_size)
+    if (cut) wu_data <- cut_rhemtulla(wu_data, dist = rhum_dist, levs = 7)
+
+    return(wu_data)
+  }
+
+  wu_data_sym <- synth_wu(model
+                          , sample_size = sample_size)
+  wu_data_masym <- synth_wu(model
+                            , rhum_dist = "moderate_asym"
+                            , sample_size = sample_size)
+
+  # do some manual cuts
+  wu_data_sasym <- synth_wu(model
+                            , cut = FALSE
+                            , sample_size = sample_size)
+  wu_data_sasym[, c(1, 2, 6)] <- cut_rhemtulla(wu_data_sasym[, c(1, 2, 6)]
+                                               , dist = "severe_asym"
+                                               , levs = 7)
+  wu_data_sasym[, 3:5] <- cut_rhemtulla(wu_data_sasym[, 3:5]
+                                        , dist = "moderate_asym"
+                                        , levs = 7)
+  wu_data_sasym[, 7] <- cut_rhemtulla(wu_data_sasym[, 7]
+                                      , dist = "severe_asym"
+                                      , levs = 7)
+  wu_data_sasym[, 11] <- cut_rhemtulla(wu_data_sasym[, 11]
+                                       , dist = "moderate_asym"
+                                       , levs = 7)
+  wu_data_sasym[, c(8:10, 12)] <- cut_rhemtulla(wu_data_sasym[, c(8:10, 12)]
+                                                , levs = 7)
+
+  return(list(sym = wu_data_sym
+              , masym = wu_data_masym
+              , sasym = wu_data_sasym))
 }

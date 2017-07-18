@@ -44,7 +44,7 @@ char_to_na <- function(dt
 
 #' Convert all variables to factors.
 #'
-#' @description arules wants only logical or factor. This function converts everything it finds into a factor
+#' @description Convenience function to converts everything it finds into a factor
 #' @param dt A data frame
 #' @param refactor Logical. Do you want it to also work on variables that are already factors? (Default is FALSE)
 #' @param ord A vector of Logical indicating which columns of dt should be converted to ordered factors. Will be recycled as necessary.
@@ -192,3 +192,4 @@ missing_matrix <- function(dt, one_as_missing = TRUE) {
   class(mims) <- "mim"
   return(mims)
 }
+

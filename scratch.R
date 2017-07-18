@@ -3,6 +3,17 @@ library(arulesimp)
 library(arulesViz)
 data("responses")
 
+my_vars <- c("strongly_agree", "neutral_to_agree"
+             , "multimodal", "strongly_disagree")
+
+# take a quick look at the generating parameters
+data("dewinter_dist")
+dewinter_dist[my_vars, ]
+
+synth_dewinter(var_names = my_vars
+               , dists = my_vars
+               , 10000)
+
 # check the data set to see if missing values
 # are represented by anything other than NA
 # fix this (default "")

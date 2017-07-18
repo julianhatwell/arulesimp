@@ -80,6 +80,7 @@ ci_cover <- function(ci, theta_p) {
 #' Cronbach's alpha Confidence Interval
 #'
 #' Calculate a confidence interval for Cronbach's alpha using the F-distribution
+#'
 #' @param a A scalar numeric. The value of alpha to be tested
 #' @param n A scalar numeric. The number of cases (subject, respondents).
 #' @param p A scalar numeric. The number of item in the scale.
