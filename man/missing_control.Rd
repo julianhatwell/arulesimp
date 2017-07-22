@@ -10,7 +10,7 @@ missing_control(pattern, method, nr_cols, dep_cols, unobs_cols, mm_cols, beta_0,
 \arguments{
 \item{pattern}{A character string indicating whether missing data will occur in a MCAR, MAR or MNAR pattern}
 
-\item{method}{Optional character string. Allowed values are "princomp", "carpita" and "wu_ranking" if pattern = MAR, and MNAR still TO DO}
+\item{method}{Optional character string. Allowed values are "princomp", "carpita" and "wu_ranking" if pattern = MAR, and MNAR}
 
 \item{nr_cols}{A character vector containing names of columns subject to missingness. If empty, all will be used.}
 

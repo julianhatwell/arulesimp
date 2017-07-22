@@ -58,7 +58,7 @@ compare_dewinter <- function(v, de_dist = "all") {
 #' Control the parameters for generating patterns of missing data
 #'
 #' @param pattern A character string indicating whether missing data will occur in a MCAR, MAR or MNAR pattern
-#' @param method Optional character string. Allowed values are "princomp", "carpita" and "wu_ranking" if pattern = MAR, and MNAR still TO DO
+#' @param method Optional character string. Allowed values are "princomp", "carpita" and "wu_ranking" if pattern = MAR, and MNAR
 #' @param dep_cols A character vector containing names of columns to be used as covariates for patterns MAR and MNAR
 #' @param nr_cols A character vector containing names of columns subject to missingness. If empty, all will be used.
 #' @param unobs_cols A character vector containing names of covariates that will not be included in the output.
@@ -121,14 +121,15 @@ missing_control <- function(pattern
       !missing(mm_cols) &&
       !is.na(any(match(unobs_cols, mm_cols)))) stop("some unobserved variables overlap with list to include in missing indicator matrix")
   # check betas
-  if (!missing(beta_0) &&
-      (!(class(beta_0) %in% c("numeric", "integer")) ||
-      length(beta_0) > 1)) stop("beta_0 (intercept) should be a scalar numeric")
+  if (!missing(beta_0)) {
+    if  (!(class(beta_0) %in% c("numeric", "integer")) ||
+        (length(beta_0) > 1)) stop("beta_0 (intercept) should be a scalar numeric")
+    if (!missing(beta_0) && any(abs(c(beta_0, betas)) > 3)) warning("coefficients with an absolute value greater than 3 tend to overwhelm the probability generating steps")
+  }
   if (pattern %in% c("MAR", "MNAR") &&
       !(missing(betas))) {
-        if (length(betas) != length(dep_cols)) stop("provided betas length does not match dep_cols.")
-        if (!(is.numeric(betas) || is.integer(betas))) stop("provided betas must be numeric vector")
-  if (any(abs(c(beta_0, betas)) > 3)) warning("coefficients with an absolute value greater than 3 tend to overwhelm the probability generating steps")
+    if (length(betas) != length(dep_cols)) stop("provided betas length does not match dep_cols.")
+    if (!(is.numeric(betas) || is.integer(betas))) stop("provided betas must be numeric vector")
   }
   # check prob or exact
   if ((missing(prob) && missing(exact)) ||
@@ -225,7 +226,7 @@ synth_missing <- function(dt
     if (syn_control$method == "carpita") {
       if (sum(is.na(dt[, syn_control$dep_cols])) > 0) stop("covariates for method carpita must not contain NA vallues")
       dep_cols <- if (length(syn_control$dep_cols) == 1) {
-        as.vector(as.vector(scale(dt[, syn_control$dep_cols])))
+        as.vector(scale(dt[, syn_control$dep_cols]))
       } else {
         sapply(dt[, syn_control$dep_cols], scale)
       }
@@ -304,64 +305,6 @@ synth_missing <- function(dt
     }
   }
   return(result)
-}
-
-
-create_rhemtulla_cutpoints <- function() {
-  if(!(exists("ari.env")))
-  ari.env <<- new.env(parent = emptyenv())
-
-  ari.env$rhemtulla_thresholds <- list(
-    symmetric = list()
-    , moderate_asym = list()
-    , severe_asym = list()
-  )
-
-  ari.env$rhemtulla_thresholds$symmetric[[2]] <- 0.00
-  ari.env$rhemtulla_thresholds$symmetric[[3]] <- c(-.83, .83)
-  ari.env$rhemtulla_thresholds$symmetric[[5]] <- c(-1.50, -.50, .50, 1.50)
-  ari.env$rhemtulla_thresholds$symmetric[[7]] <- c(-1.79, -1.07, -.36, .36, 1.07, 1.79)
-  ari.env$rhemtulla_thresholds$moderate_asym[[2]] <- .36
-  ari.env$rhemtulla_thresholds$moderate_asym[[3]] <- c(-.50, .76)
-  ari.env$rhemtulla_thresholds$moderate_asym[[5]] <- c(-.70, .39, 1.16, 2.05)
-  ari.env$rhemtulla_thresholds$moderate_asym[[7]] <- c(-1.43, -.43, .38, .94, 1.44, 2.54)
-  ari.env$rhemtulla_thresholds$severe_asym[[2]] <- 1.04
-  ari.env$rhemtulla_thresholds$severe_asym[[3]] <- c(.58, 1.13)
-  ari.env$rhemtulla_thresholds$severe_asym[[5]] <- c(.05, .44, .84, 1.34)
-  ari.env$rhemtulla_thresholds$severe_asym[[7]]<- c(-.25, .13, .47, .81, 1.18, 1.64)
-}
-
-remove_rhemtulla_cutpoints <- function() {
-  if (exists("ari.env")) rm(ari.env, envir = .GlobalEnv)
-}
-
-
-#' Normal to Item Scale
-#'
-#' Discretize normally distributed data to ordinal scales based on desired distribution and number of levels
-#'
-#' @export
-cut_rhemtulla <- function(dt, dist = "symmetric", levs = 5) {
-  if (!(dist %in% c("symmetric", "moderate_asym", "severe_asym"))) stop("dist must be a character scalar or vector. only \"symmetric\", \"moderate_asym\" and \"severe_asym\" are allowed")
-  if (!(all(levs %in% c(2, 3, 5, 7)))) stop("levs must be an integer scalar or vector. only 2, 3, 5, and 7 are allowed")
-  if (!(all(sapply(dt, class) == "numeric"))) stop("only real numeric values allowed. integers won't be processed")
-  if (length(dist) != 1 || length(levs) != 1) stop("dist and levs must be scalar of length = 1")
-
-  on.exit(remove_rhemtulla_cutpoints())
-  create_rhemtulla_cutpoints()
-  if (class(dt) == "data.frame") {
-    return(data.frame(lapply(dt, function(x) {
-        cut(x, breaks=c(-Inf
-                        , ari.env$rhemtulla_thresholds[[dist]][[levs]]
-                        , Inf)
-            , labels=FALSE)
-        })))
-  } else {
-    return(cut(dt, breaks=c(-Inf
-                           , ari.env$rhemtulla_thresholds[[dist]][[levs]]
-                           , Inf)
-               , labels=FALSE))
-  }
 }
 
 #' Synthesise Likert Scale data from latent variable models

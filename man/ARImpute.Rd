@@ -4,7 +4,7 @@
 \alias{ARImpute}
 \title{ARImputation}
 \usage{
-ARImpute(df, var_names, rows_to_impute, cars)
+ARImpute(dt, var_names, rows_to_impute, cars)
 }
 \description{
 Association Rules-based Imputation

@@ -95,8 +95,7 @@ extract_cars <- function(cars, v) {
 #' @param min_supp A scalar value between 0 and 1. Minimum support to filter rules.
 #' @param min_conf A scalar value between 0 and 1. Minimum confidence to filter rules.
 #' @param min_lift A scalar value between 0 and 1. Minimum lift to filter rules.
-#' @export
-make_cars <- function(ruleset
+make_cars_old <- function(ruleset
                       , var_names
                       , min_supp = 0.1
                       , min_conf = 0.1
@@ -104,9 +103,9 @@ make_cars <- function(ruleset
   cars <- list()
   for (v in var_names) {
     cars[[v]] <- arules::subset(ruleset
-                                , subset = rhs %pin% paste0(v, "=") &
-                                  support >= min_supp &
-                                  confidence >= min_conf &
+                                , subset = arules::`%pin%`(rhs,  paste0(v, "=")) &&
+                                  support >= min_supp &&
+                                  confidence >= min_conf &&
                                   lift >= min_lift)
   }
 

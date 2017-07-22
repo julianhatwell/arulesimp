@@ -1,51 +1,116 @@
+# re-do scratch to use smaller & synthetic data
 rm(list = ls())
+library(lattice)
 library(arulesimp)
-library(arulesViz)
-data("responses")
+source("C:\\Dev\\Study\\R\\R_Themes\\MarketingTheme.R")
+set.seed(1020384)
 
 my_vars <- c("strongly_agree", "neutral_to_agree"
-             , "multimodal", "strongly_disagree")
+             , "agree_peak", "agree_flat", "multimodal"
+             , "strongly_disagree", "very_strongly_disagree"
+             , "neutral_peak", "neutral_to_disagree"
+             , "neutral_flat")
 
 # take a quick look at the generating parameters
 data("dewinter_dist")
 dewinter_dist[my_vars, ]
 
-synth_dewinter(var_names = my_vars
+# gen some data
+dw <- synth_dewinter(var_names = my_vars
                , dists = my_vars
-               , 10000)
+               , 2000)
+d_fmla_agree <- as.formula(paste("~"
+          , paste(my_vars[1:5], collapse = " + ")))
+d_fmla_disagree <- as.formula(paste("~"
+                                 , paste(my_vars[6:10], collapse = " + ")))
 
-# check the data set to see if missing values
-# are represented by anything other than NA
-# fix this (default "")
-resp <- char_to_na(responses)
+densityplot(d_fmla_agree
+            , data = dw
+            , par.settings = MyLatticeTheme
+            , scales = MyLatticeScale
+            , xlab = "Selection of De Winter distributions"
+            , auto.key = list(columns = 2)
+            , plot.points = FALSE)
 
-mim_resp <- missing_matrix(resp)
+densityplot(d_fmla_disagree
+            , data = dw
+            , par.settings = MyLatticeTheme
+            , scales = MyLatticeScale
+            , xlab = "Selection of De Winter distributions"
+            , auto.key = list(columns = 2)
+            , plot.points = FALSE)
 
-# arules apriori wants logical or factor everything
-resp <- all_factor(resp)
+# synthesise some missingness
+dw_mnar1 <- dw
+dw_mnar1$cov1 <- rpois(2000, 3)
+dw_mnar2 <- dw_mnar1
+dw_mnar1 <- synth_missing(dw_mnar1
+           , syn_control = missing_control(
+           pattern = "MNAR"
+           , method = "carpita"
+           , dep_cols = "cov1"
+           , unobs_cols = "cov1"
+           , prob = 0.1
+           )
+           , plot_probs = TRUE)
 
-# gets a named (variable names) vector
-# of number of missing values
-mv_unsorted <- missing_values(resp, sorted = FALSE)
-mv_sorted <- missing_values(resp)
+dw_mnar2 <- synth_missing(dw_mnar2
+          , syn_control = missing_control(
+            pattern = "MNAR"
+            , method = "carpita"
+            , dep_cols = c("cov1", my_vars[1:2])
+            , beta_0 = 0.5 # if missing here gives an error
+            , betas = c(1, 2, 2)
+            , nr_cols = my_vars[c(1:3, 6:7)]
+            , unobs_cols = "cov1"
+            , prob = 0.3
+          )
+          , plot_probs = TRUE)
 
-mv_short <- mv_sorted[1:5]
+# cov1 has been deleted
+names(dw_mnar1$data)
+mv1_sorted <- missing_values(dw_mnar1$data) # order of missingness, ascending
+mv1_sorted
+sum(complete.cases(dw_mnar1$data))
+# defaulted to use all other columns
+dw_mnar1$syn_control$nr_cols
+dw_mnar1$dplot$par.settings <- MyLatticeTheme
+dw_mnar1$dplot
+dw_mnar1$data_factors <- all_factor(dw_mnar1$data)
 
-# may not need this
-uv_sorted <- unique_values(resp
-                , which_cols = names(mv_sorted))
+
+# cov1 has been deleted
+names(dw_mnar2$data)
+mv2_sorted <- missing_values(dw_mnar2$data) # order of missingness, ascending
+mv2_sorted
+sum(complete.cases(dw_mnar2$data))
+# defaulted to use all other columns
+dw_mnar2$syn_control$dep_cols
+dw_mnar2$dplot$par.settings <- MyLatticeTheme
+dw_mnar2$dplot
+dw_mnar2$data_factors <- all_factor(dw_mnar2$data)
+
 
 # step 0. convert data to transactions
-resp_trans <- as(resp, "transactions")
-summary(resp_trans)
+dw_mnar1$data_trans <- as(dw_mnar1$data_factors, "transactions")
+dw_mnar2$data_trans <- as(dw_mnar2$data_factors, "transactions")
+
+summary(dw_mnar1$data_trans)
 
 # step 1. Get the broadest possible ruleset
-rules <- arules::apriori(resp_trans
-                 , parameter = list(
-                   support = 0.15
-                   , confidence = 0.3))
-rules
-summary(rules)
+ari_control = arulesimp_control(
+  method = "best_rule"
+  , support = 0.02
+  , confidence = 0.2
+)
+
+cars1 <- make_cars(dw_mnar1$data_trans
+                   , ari_control = ari_control
+                   , var_names = names(mv1_sorted))
+
+# there are only 4 columns
+rules1
+summary(rules1)
 
 # step 2. Extract rules subsets
 # structure is nested lists
@@ -60,16 +125,24 @@ summary(rules)
 # this takes a bit of time because of writing to disc
 # parallelise?
 
-cars <- make_cars(rules, names(mv_sorted))
+cars1 <- make_cars(rules1, names(mv1_sorted)
+                   , min_supp = ari_control$support
+                   , min_conf = ari_control$confidence)
+
 
 # step 3. Which are the rows to impute?
-rows_to_impute <- find_rows_to_impute(responses, names(mv_sorted))
+# convenience function, looks at the mim if given one
+rows1_to_impute <- find_rows_to_impute(dw_mnar1$mim, names(mv1_sorted))
+rows2_to_impute <- find_rows_to_impute(dw_mnar2$mim, names(mv2_sorted))
 
 # step 4. do imputation
-respimputed <- ARImpute(responses
-                        , names(mv_sorted)
-                        , rows_to_impute = rows_to_impute
-                        , cars = cars)
+imputed1 <- ARImpute(dw_mnar1$data
+                        , names(mv1_sorted)
+                        , rows_to_impute = rows1_to_impute
+                        , cars = cars1)
+
+
+
 
 
 
