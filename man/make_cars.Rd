@@ -4,19 +4,8 @@
 \alias{make_cars}
 \title{Creat classification rules}
 \usage{
-make_cars(dt, var_names, ari_control = arulesimp_control(method = "best_rule",
-  support = 0.1, confidence = 0.1))
-}
-\arguments{
-\item{var_names}{A character vector with the names of target variables in the dataset which the rules came from}
-
-\item{ruleset}{An object of class rules (package arules)}
-
-\item{min_supp}{A scalar value between 0 and 1. Minimum support to filter rules.}
-
-\item{min_conf}{A scalar value between 0 and 1. Minimum confidence to filter rules.}
-
-\item{min_lift}{A scalar value between 0 and 1. Minimum lift to filter rules.}
+make_cars(dt, var_names, c_control = cars_control(method = "best_rule",
+  support = 0.1, confidence = 0.1, sort_by = "confidence"))
 }
 \description{
 Create a list of classification rules for each target viable

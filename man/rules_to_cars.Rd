@@ -4,7 +4,7 @@
 \alias{rules_to_cars}
 \title{Convert arules object to cars}
 \usage{
-rules_to_cars(ruleset, var_names)
+rules_to_cars(ruleset, var_names, sort_by)
 }
 \description{
 Get the classification association rules from a rule set for named variables

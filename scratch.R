@@ -98,19 +98,9 @@ dw_mnar2$data_trans <- as(dw_mnar2$data_factors, "transactions")
 summary(dw_mnar1$data_trans)
 
 # step 1. Get the broadest possible ruleset
-ari_control = arulesimp_control(
-  method = "best_rule"
-  , support = 0.02
-  , confidence = 0.2
+c_control = cars_control(support = 0.5
+  , confidence = 0.5, sort_by = "confidence"
 )
-
-cars1 <- make_cars(dw_mnar1$data_trans
-                   , ari_control = ari_control
-                   , var_names = names(mv1_sorted))
-
-# there are only 4 columns
-rules1
-summary(rules1)
 
 # step 2. Extract rules subsets
 # structure is nested lists
@@ -125,9 +115,24 @@ summary(rules1)
 # this takes a bit of time because of writing to disc
 # parallelise?
 
-cars1 <- make_cars(rules1, names(mv1_sorted)
-                   , min_supp = ari_control$support
-                   , min_conf = ari_control$confidence)
+cars1 <- make_cars(dw_mnar1$data_trans
+                   , c_control = c_control
+                   , var_names = names(mv1_sorted))
+
+dw_mnar1$imputed <- ARImpute(cars1, dw_mnar1$data_factors)
+colSums(sapply(dw_mnar1$imputed, is.na))
+dw_mnar1$imputed_num <- as.data.frame(
+  lapply(dw_mnar1$imputed, as.integer))
+
+
+# "closing var: neutral_to_disagree rule: 5 neutral_to_agree very_strongly_disagree 2 1 row: 58 new value: 3"
+# if (is.na(cars[[v]][[i]]$antecedent[1, "value"])) {
+#   all_match <- TRUE # empty set match
+#   warning("empty rule found. cars may not have been constructed correctly.")
+#   break
+# }
+
+
 
 
 # step 3. Which are the rows to impute?
