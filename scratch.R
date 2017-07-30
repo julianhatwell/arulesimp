@@ -236,6 +236,7 @@ densityplot(dw_mnar1$co_imputed_num$neutral_flat)
 densityplot(dw_mnar1$imputed_topnm_num$neutral_flat)
 densityplot(dw_mnar1$imputed_topnmjv_num$neutral_flat)
 densityplot(dw_mnar1$imputed_laplace_num$neutral_flat)
+densityplot(dw_mnar1$imputed_weighted_chisq_num$neutral_flat)
 
 densityplot(dw$strongly_agree)
 densityplot(dw_mnar1$imputed_num$strongly_agree)

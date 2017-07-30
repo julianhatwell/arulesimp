@@ -366,11 +366,52 @@ ARImpute <- function(cars, dt, var_names
     num_classes <- max(sapply(dt, as.numeric), na.rm = TRUE) -
                     (min(sapply(dt, as.numeric), na.rm = TRUE) - 1)
     for (v in var_names) {
+      print(paste("start calc stats", v))
       r_tot <- nrow(dt) - length(rows_to_impute[[v]])
       src_rows <- (1:2000)[-rows_to_impute[[v]]]
-      # another loop here over each row to impute
+      num_rules <- length(cars[[v]])
+
+      # pre-calculate statistics
+      rule_stat <- sapply(seq_along(cars[[v]]), function(rule) {
+        condition_value <- as.character(cars[[v]][[rule]]$antecedent$value)
+        supp_c <- table(dt[src_rows, v])[cars[[v]][[rule]]$consequent]
+
+        if (length(cars[[v]][[rule]]$antecedent$key) == 1) {
+          all_match <- dt[src_rows, as.character(cars[[v]][[rule]]$antecedent$key)] == condition_value
+          all_match <- ifelse(is.na(all_match), FALSE, all_match)
+        } else {
+          ante <- matrix(rep(condition_value, r_tot), ncol = length(condition_value), byrow = TRUE)
+          all_match <- dt[src_rows, as.character(cars[[v]][[rule]]$antecedent$key)] == ante
+          all_match <- ifelse(is.na(all_match), FALSE, all_match)
+          all_match <- apply(all_match, 1, all)
+        }
+
+        supp_rule <- sum(all_match)
+
+        if (ari_control$method == "laplace") {
+          return((supp_c / r_tot + 1) / (supp_rule / r_tot + num_classes))
+        }
+
+        if(ari_control$method == "weighted_chisq") {
+          e_max <- 1/(supp_rule * supp_c) +
+            1/(supp_rule * (r_tot - supp_c)) +
+            1/((r_tot - supp_rule) * supp_c) +
+            1/((r_tot - supp_rule) * (r_tot - supp_c))
+          max_chi <- (min(supp_rule, supp_c) - (supp_rule * supp_c)/r_tot)^2 * r_tot * e_max
+
+          true_pos <- sum(dt[src_rows, v] == cars[[v]][[rule]]$consequent & all_match)
+          false_pos <- sum(dt[src_rows, v] == cars[[v]][[rule]]$consequent & !all_match)
+          false_neg <- sum(dt[src_rows, v] != cars[[v]][[rule]]$consequent & all_match)
+          true_neg <- sum(dt[src_rows, v] != cars[[v]][[rule]]$consequent & !all_match)
+
+          chi <- chisq.test(matrix(c(true_pos, false_pos, false_neg, true_neg), ncol = 2, nrow = 2))$statistic
+
+          return(chi^2 / max_chi)
+        }
+      })
+      print(paste("finish calc stats", v))
       for (k in seq_along(rows_to_impute[[v]])) {
-        num_rules <- length(cars[[v]])
+        print(paste("start find rules for row", k))
         n_rules <- list()
         n <- 0
         for (i in 1:num_rules) {
@@ -378,59 +419,16 @@ ARImpute <- function(cars, dt, var_names
                                         , as.character(cars[[v]][[i]]$antecedent$key)])
           condition_value <- as.character(cars[[v]][[i]]$antecedent$value)
           if (identical(data_value, condition_value)) {
+            print(paste("found rule", i))
             n <- n + 1
             n_rules[[n]] <- cars[[v]][[i]]
-
-            # wighted chisq
-            if (ari_control$method == "weighted_chisq") {
-              # the article this comes from, li (2001), uses absolute numbers, not proportions for support
-              supp_c <- table(dt[src_rows, v])[n_rules[[n]]$consequent]
-
-              if (length(n_rules[[n]]$antecedent$key) == 1) {
-                all_match <- dt[src_rows, as.character(n_rules[[n]]$antecedent$key)] == condition_value
-              } else {
-                all_match <- logical(length(src_rows))
-                for (m in 1:r_tot) {
-                  all_match[m] <- all(dt[src_rows, as.character(n_rules[[n]]$antecedent$key)][m, ] == condition_value)
-                }
-              }
-              # correct for any NA in the rule condition
-              all_match <- ifelse(is.na(all_match), FALSE, all_match)
-              supp_rule <- sum(all_match)
-
-              e_max <- 1/(supp_rule * supp_c) +
-                1/(supp_rule * (r_tot - supp_c)) +
-                1/((r_tot - supp_rule) * supp_c) +
-                1/((r_tot - supp_rule) * (r_tot - supp_c))
-              max_chi <- (min(supp_rule, supp_c) - (supp_rule * supp_c)/r_tot)^2 * r_tot * e_max
-
-              true_pos <- sum(dt[src_rows, v] == n_rules[[n]]$consequent & all_match)
-              false_pos <- sum(dt[src_rows, v] == n_rules[[n]]$consequent & !all_match)
-              false_neg <- sum(dt[src_rows, v] != n_rules[[n]]$consequent & all_match)
-              true_neg <- sum(dt[src_rows, v] != n_rules[[n]]$consequent & !all_match)
-
-              chi <- chisq.test(matrix(c(true_pos, false_pos, false_neg, true_neg), ncol = 2, nrow = 2))$statistic
-
-              n_rules[[n]]$quality$statistic <- chi^2 / max_chi
-            }
-
-            # laplace
-            if (ari_control$method == "laplace") {
-              if (length(data_value) > 1) {
-                dv_c <- dv_tot[dt[[v]] == n_rules[[n]]$consequent, ]
-                n_tot <- sum(rowSums(dv_tot) == length(data_value), na.rm = TRUE)
-                n_c <- sum(rowSums(dv_c) == length(data_value), na.rm = TRUE)
-              } else {
-                dv_c <- dv_tot[dt[[v]] == n_rules[[n]]$consequent]
-                n_tot <- sum(dv_tot, na.rm = TRUE)
-                n_c <- sum(dv_c, na.rm = TRUE)
-              }
-              n_rules[[n]]$quality$statistic <- (n_c + 1) / (n_tot + num_classes)
-            }
+            n_rules[[n]]$quality$statistic <- rule_stat[i]
           }
         }
+
         # best k for each class
         # aggregation and imputation step for laplace or chisq
+        print(paste("imputing row", k))
         if (length(n_rules) > 0) {
           all_rules <- as.data.frame(t(sapply(n_rules, function(rule) {
             c(as.numeric(rule$consequent), rule$quality$support, rule$quality$statistic)
@@ -450,6 +448,7 @@ ARImpute <- function(cars, dt, var_names
   if (remaining > 0) {
     warning(paste("not every missing value had a covering rule.", remaining, "remaining"))
     if (ari_control$use_default_classes) {
+      print(paste("imputing default classes"))
       default_classes <- sapply(sapply(dt[, var_names], table), which.max)
       names(default_classes) <- var_names
       for (v in var_names) {
