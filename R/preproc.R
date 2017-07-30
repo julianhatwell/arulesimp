@@ -274,3 +274,143 @@ cut_equal <- function(dt, dist = "equal_distance"
     cut(x, breaks = cutpoints, labels = labels)
   })))
 }
+
+#' Ordinal to cumulative binary representation
+#'
+#' Expand ordinal variables to a group of binary variables representing cumulative values
+#'
+#' @export
+ord_cum_expand <- function(dt, var_names
+                           , mn, mx
+                           , keep_orig = FALSE) {
+  if (class(dt) != "data.frame") stop("provide a data frame")
+  if (any(!(sapply(dt, class) %in% c("numeric", "integer")))) stop("all variables must be numeric, ideally integer")
+  if (any(sapply(dt, class) == "numeric")) {
+    warning("non-integer values were found. they will be rounded and converted")
+    dt <- sapply(dt, as.integer)
+  }
+  if (missing(var_names)) var_names <- names(dt)
+
+  if(missing(mn)) mn <- min(dt, na.rm = TRUE)
+  if(missing(mx)) mx <- max(dt, na.rm = TRUE)
+
+  lts_seq <- (mn + 1):mx
+  gts_seq <- mn:(mx - 1)
+
+  expanded <- lapply(var_names, function(v) {
+    lts <- sapply(lts_seq, function(i) {
+      ifelse(dt[[v]] < i, 1, 0)
+    })
+
+    gts <- sapply(gts_seq, function(i) {
+      ifelse(dt[[v]] > i, 1, 0)
+    })
+    return(cbind(lts, gts))
+  })
+
+  names(expanded) <- var_names
+  for (v in var_names) {
+    colnames(expanded[[v]]) <- c(paste0(v, "_lt_", lts_seq)
+                                 , paste0(v, "_gt_", gts_seq))
+  }
+  names(expanded) <- NULL
+  expanded <- as.data.frame(expanded)
+  if (keep_orig) expanded <- cbind(dt, expanded)
+  return(expanded)
+}
+
+#' Ordinal to cumulative binary representation
+#'
+#' Expand ordinal variables to a group of binary variables representing cumulative values
+#'
+#' @export
+ord_cum_combine <- function(dt, var_names
+                           , mn, mx
+                           , stride = 1
+                           , keep_orig = FALSE) {
+  if (class(dt) != "data.frame") stop("provide a data frame")
+  if (any(!(sapply(dt, class) %in% c("numeric", "integer")))) stop("all variables must be numeric, ideally integer")
+  if (any(sapply(dt, class) == "numeric")) {
+    warning("non-integer values were found. they will be rounded and converted")
+    dt <- sapply(dt, as.integer)
+  }
+  if (missing(var_names)) var_names <- names(dt)
+  if (!(class(stride) %in% c("numeric", "integer"))) stop("stride must be scalar numeric, ideally integer")
+  if (class(stride) == "numeric" &&
+      round(stride) != stride) {
+    warning("non-integer value for stride will be rounded")
+    stride <- as.integer(round(stride))
+  }
+
+  if(missing(mn)) mn <- min(dt, na.rm = TRUE)
+  if(missing(mx)) mx <- max(dt, na.rm = TRUE)
+
+  step <- mn
+  sequences <- list()
+  while (step + stride <= mx) {
+    sequences <- append(sequences
+                , list(step:(step + stride)))
+    step <- step + 1
+  }
+
+  combined <- lapply(var_names, function(v) {
+    combs <- sapply(sequences, function(s) {
+      ifelse(dt[[v]] %in% s, 1, 0)
+    })
+  })
+
+  names(combined) <- var_names
+  for (v in var_names) {
+    colnames(combined[[v]]) <- paste0(v, "_in_"
+      , sapply(sequences, function(x) {
+        paste(x, collapse = "_")
+        }))
+  }
+  names(combined) <- NULL
+  combined <- as.data.frame(combined)
+  if (keep_orig) expanded <- cbind(dt, expanded)
+  return(combined)
+}
+
+#' Rounded average over Likert Scales
+#'
+#' Create a new ordinal variable by averaging and rounding to nearest integer over any combination of ordinal variables.
+#'
+#' @export
+ord_combi_expand <- function(dt, likert_scales
+                             , keep_orig = TRUE) {
+  if (class(dt) != "data.frame") stop("provide a data frame")
+  if (any(!(sapply(dt, class) %in% c("numeric", "integer")))) stop("all variables must be numeric, ideally integer")
+  if (any(sapply(dt, class) == "numeric")) {
+    warning("non-integer values were found. they will be rounded and converted")
+    dt <- sapply(dt, as.integer)
+  }
+  if (class(likert_scales) != "list" ||
+      any(lapply(likert_scales, class) != "character") ||
+      is.null(names(likert_scales))) stop("provide a named list of character vectors of variable names to treat together as multiple response Likert scales")
+  if (!(all(unlist(likert_scales) %in% names(dt)))) stop("some variable names given in likert_scales are not in the data frame dt")
+
+  combis <- lapply(likert_scales, function(x) {
+    res <- matrix(NA, nrow = nrow(dt)
+                  , ncol = length(x))
+    for(i in seq_along(x)) {
+      y <- setdiff(x, x[i])
+      res[, i] <- round(rowMeans(dt[, y], na.rm = TRUE))
+    }
+    return(res)
+  })
+
+  cnames <- sapply(names(likert_scales), function(x) {
+    res <- paste0(x, "_ex_", likert_scales[[x]])
+  })
+
+  names(combis) <- names(likert_scales)
+  for (v in names(likert_scales)) {
+    colnames(combis[[v]]) <- cnames[, v]
+  }
+  names(combis) <- NULL
+  combis <- as.data.frame(combis)
+
+  if (keep_orig) combis <- cbind(dt, combis)
+  return(combis)
+}

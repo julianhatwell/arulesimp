@@ -4,7 +4,8 @@
 \alias{ARImpute}
 \title{ARImputation}
 \usage{
-ARImpute(cars, dt, var_names, use_default_classes = TRUE, rows_to_impute)
+ARImpute(cars, dt, var_names, ari_control = arulesimp_control(method =
+  "best_rule", use_default_classes = TRUE))
 }
 \description{
 Association Rules-based Imputation

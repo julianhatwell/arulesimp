@@ -135,7 +135,7 @@ LikertImpute <- function(dt, dt_mim
 
 #' Control parameters for make_cars
 #'
-#' Control the parameters for generating patterns of missing data
+#' Control the parameters for generation of classification association rules
 #'
 #' @param ruleset An object of class rules (package arules)
 #' @param var_names A character vector with the names of target variables in the dataset which the rules came from
@@ -148,13 +148,15 @@ LikertImpute <- function(dt, dt_mim
 cars_control <- function(support
                               , confidence
                               , lift
-                              , sort_by = "confidence") {
+                              , sort_by = "confidence"
+                              , maxlen) {
   cc <- list(support = support
     , confidence = confidence
     , sort_by = sort_by
   )
   class(cc) <- c("cars_control", "list")
   if (!missing(lift)) cc$lift <- lift
+  if (!missing(maxlen)) cc$maxlen <- maxlen
   return(cc)
 }
 
@@ -221,27 +223,55 @@ rules_to_cars <- function(ruleset, var_names, sort_by) {
   return(cars_out)
 }
 
-#' Creat classification rules
+#' Create classification rules
 #'
 #' @description Create a list of classification rules for each target viable
 #'
 #' @export
 make_cars <- function(dt, var_names
-                      , c_control = cars_control(method = "best_rule"
-                                      , support = 0.1
+                      , c_control = cars_control(support = 0.1
                                       , confidence = 0.1
                                       , sort_by = "confidence")) {
   if (!(class(dt) %in% c("transactions", "data.frame"))) stop("provide an arules transaction object if possible, or a data.frame where all variables are factors")
-  if (!("cars_control" %in% class(c_control))) stop("please provide control paramaters with arulesimp_control function")
+  if (!("cars_control" %in% class(c_control))) stop("please provide control paramaters with cars_control function")
 
+  parameter <- list(
+    support = c_control$support
+    , confidence = c_control$confidence)
+
+  if (!is.null(c_control$maxlen)) parameter$maxlen <- c_control$maxlen
   rules <- arules::apriori(dt
-                           , parameter = list(
-                             support = c_control$support
-                             , confidence = c_control$confidence)
+                           , parameter = parameter
                            , control = list(verbose = FALSE))
   cars <- rules_to_cars(rules, var_names, sort_by = c_control$sort_by)
   return(cars)
 }
+
+#' Control parameters for ARImputation
+#'
+#' Control the parameters for the AR imputation routine
+#'
+#' @param ruleset An object of class rules (package arules)
+#' @param var_names A character vector with the names of target variables in the dataset which the rules came from
+#' @param support A scalar value between 0 and 1. Minimum support to filter rules.
+#' @param confidence A scalar value between 0 and 1. Minimum confidence to filter rules.
+#' @param lift An optional scalar value between 0 and 1. Minimum lift to filter rules.
+#' @param sort_by A character string (default "confidence") indicating which quality measure to sort the rules by
+#'
+#' @export
+arulesimp_control <- function(method
+                              , use_default_classes
+                              , rows_to_impute
+                              , top_n) {
+  ac <- list(
+    method = method
+    , use_default_classes = use_default_classes)
+  class(ac) <- c("arulesimp_control", "list")
+  if (!(missing(rows_to_impute))) ac$rows_to_impute <- rows_to_impute
+  if (!(missing(top_n))) ac$top_n <- top_n
+  return(ac)
+}
+
 
 #' ARImputation
 #'
@@ -249,8 +279,10 @@ make_cars <- function(dt, var_names
 #'
 #' @export
 ARImpute <- function(cars, dt, var_names
-                     , use_default_classes = TRUE
-                     , rows_to_impute) {
+                     , ari_control = arulesimp_control(
+                       method = "best_rule"
+                     , use_default_classes = TRUE)
+                     ) {
   if (class(dt) != "data.frame" ||
       no_missing_check(dt)
   ) stop("provide a data frame with missing values to impute")
@@ -258,42 +290,166 @@ ARImpute <- function(cars, dt, var_names
     warning("no var_names requested. imputing all where missing values are found")
     var_names <- names(missing_values(dt))
   }
-  if (missing(rows_to_impute)) rows_to_impute <- find_rows_to_impute(dt)
+  if (!("arulesimp_control" %in% class(ari_control))) stop("please provide control paramaters with arulesimp_control function")
+  if (is.null(ari_control$rows_to_impute)) rows_to_impute <- find_rows_to_impute(dt)
 
-  for (v in var_names) {
-    # another loop here over each row to impute
-    for (k in seq_along(rows_to_impute[[v]])) {
-      # initialize for the antecedent outer loop
-      all_match <- FALSE
-      num_rules <- length(cars[[v]])
-      i <- 0
-      # print(paste("initialised k loop", v, i, k))
-      # start the antecedent outer loop
-      while (
-            !(all_match) &&
-            i < num_rules) {
-        # re-initialize for the antecedent inner loop
-        i <- i + 1
+  if (ari_control$method == "best_rule") {
+    for (v in var_names) {
+      # another loop here over each row to impute
+      for (k in seq_along(rows_to_impute[[v]])) {
+        # initialize for the antecedent outer loop
         all_match <- FALSE
-        # print(paste("initialised antecedent i loop", v, i, k, cars[[v]]$antecedent[[i]]))
-        data_value <- as.character(dt[rows_to_impute[[v]][k]
-                                  , as.character(cars[[v]][[i]]$antecedent$key)])
-        condition_value <- as.character(cars[[v]][[i]]$antecedent$value)
-        all_match <- identical(data_value, condition_value)
-      }
-      if (all_match && num_rules != 0) {
-        print(paste("closing var:", v
-                    , "rule:", i, paste(as.character(unlist(cars[[v]][[i]]$antecedent)), collapse = " ")
-                    , "row:", rows_to_impute[[v]][k]
-                    , "new value:", cars[[v]][[i]]$consequent))
-        dt[rows_to_impute[[v]][[k]], v] <- cars[[v]][[i]]$consequent
+        num_rules <- length(cars[[v]])
+        i <- 0
+        # print(paste("initialised k loop", v, i, k))
+        # start the antecedent outer loop
+        while (
+              !(all_match) &&
+              i < num_rules) {
+          # re-initialize for the antecedent inner loop
+          i <- i + 1
+          all_match <- FALSE
+          # print(paste("initialised antecedent i loop", v, i, k, cars[[v]]$antecedent[[i]]))
+          data_value <- as.character(dt[rows_to_impute[[v]][k]
+                                    , as.character(cars[[v]][[i]]$antecedent$key)])
+          condition_value <- as.character(cars[[v]][[i]]$antecedent$value)
+          all_match <- identical(data_value, condition_value)
+        }
+        if (all_match && num_rules != 0) {
+          dt[rows_to_impute[[v]][[k]], v] <- cars[[v]][[i]]$consequent
+        }
       }
     }
-  }
-  remaining <- sum(colSums(sapply(dw_mnar1$imputed, is.na)))
+  } # end of best rule
+
+  if (grepl("^top\\_n", ari_control$method)) {
+    for (v in var_names) {
+      # another loop here over each row to impute
+      for (k in seq_along(rows_to_impute[[v]])) {
+        # initialize for the antecedent outer loop
+        n_rules <- list()
+        num_rules <- length(cars[[v]])
+        i <- 0
+        n <- 0
+        while (n < ari_control$top_n &&
+               i < num_rules) {
+          i <- i + 1
+          data_value <- as.character(dt[rows_to_impute[[v]][k]
+                                        , as.character(cars[[v]][[i]]$antecedent$key)])
+          condition_value <- as.character(cars[[v]][[i]]$antecedent$value)
+          if (identical(data_value, condition_value)) {
+            n <- n + 1
+            n_rules[[n]] <- cars[[v]][[i]]
+          }
+        }
+        if (n > 0) {
+          if (ari_control$method == "top_n_mean") {
+            dt[rows_to_impute[[v]][[k]], v] <- as.character(
+              nd_round(mean(
+              sapply(n_rules, function(rule) {
+              as.numeric(rule$consequent)
+            }))))
+          }
+          if (ari_control$method == "top_n_majv") {
+            majv <- names(which.max(table(
+                sapply(n_rules, function(rule) {
+                  as.numeric(rule$consequent)}))))
+            if (length(majv > 1)) majv <- sample(majv, size = 1)
+            dt[rows_to_impute[[v]][[k]], v] <- majv
+          }
+        }
+      }
+    }
+  } # end of top_n
+
+  if (ari_control$method %in% c("laplace", "weighted_chisq")) {
+    num_classes <- max(sapply(dt, as.numeric), na.rm = TRUE) -
+                    (min(sapply(dt, as.numeric), na.rm = TRUE) - 1)
+    for (v in var_names) {
+      r_tot <- nrow(dt) - length(rows_to_impute[[v]])
+      src_rows <- (1:2000)[-rows_to_impute[[v]]]
+      # another loop here over each row to impute
+      for (k in seq_along(rows_to_impute[[v]])) {
+        num_rules <- length(cars[[v]])
+        n_rules <- list()
+        n <- 0
+        for (i in 1:num_rules) {
+          data_value <- as.character(dt[rows_to_impute[[v]][k]
+                                        , as.character(cars[[v]][[i]]$antecedent$key)])
+          condition_value <- as.character(cars[[v]][[i]]$antecedent$value)
+          if (identical(data_value, condition_value)) {
+            n <- n + 1
+            n_rules[[n]] <- cars[[v]][[i]]
+
+            # wighted chisq
+            if (ari_control$method == "weighted_chisq") {
+              # the article this comes from, li (2001), uses absolute numbers, not proportions for support
+              supp_c <- table(dt[src_rows, v])[n_rules[[n]]$consequent]
+
+              if (length(n_rules[[n]]$antecedent$key) == 1) {
+                all_match <- dt[src_rows, as.character(n_rules[[n]]$antecedent$key)] == condition_value
+              } else {
+                all_match <- logical(length(src_rows))
+                for (m in 1:r_tot) {
+                  all_match[m] <- all(dt[src_rows, as.character(n_rules[[n]]$antecedent$key)][m, ] == condition_value)
+                }
+              }
+              # correct for any NA in the rule condition
+              all_match <- ifelse(is.na(all_match), FALSE, all_match)
+              supp_rule <- sum(all_match)
+
+              e_max <- 1/(supp_rule * supp_c) +
+                1/(supp_rule * (r_tot - supp_c)) +
+                1/((r_tot - supp_rule) * supp_c) +
+                1/((r_tot - supp_rule) * (r_tot - supp_c))
+              max_chi <- (min(supp_rule, supp_c) - (supp_rule * supp_c)/r_tot)^2 * r_tot * e_max
+
+              true_pos <- sum(dt[src_rows, v] == n_rules[[n]]$consequent & all_match)
+              false_pos <- sum(dt[src_rows, v] == n_rules[[n]]$consequent & !all_match)
+              false_neg <- sum(dt[src_rows, v] != n_rules[[n]]$consequent & all_match)
+              true_neg <- sum(dt[src_rows, v] != n_rules[[n]]$consequent & !all_match)
+
+              chi <- chisq.test(matrix(c(true_pos, false_pos, false_neg, true_neg), ncol = 2, nrow = 2))$statistic
+
+              n_rules[[n]]$quality$statistic <- chi^2 / max_chi
+            }
+
+            # laplace
+            if (ari_control$method == "laplace") {
+              if (length(data_value) > 1) {
+                dv_c <- dv_tot[dt[[v]] == n_rules[[n]]$consequent, ]
+                n_tot <- sum(rowSums(dv_tot) == length(data_value), na.rm = TRUE)
+                n_c <- sum(rowSums(dv_c) == length(data_value), na.rm = TRUE)
+              } else {
+                dv_c <- dv_tot[dt[[v]] == n_rules[[n]]$consequent]
+                n_tot <- sum(dv_tot, na.rm = TRUE)
+                n_c <- sum(dv_c, na.rm = TRUE)
+              }
+              n_rules[[n]]$quality$statistic <- (n_c + 1) / (n_tot + num_classes)
+            }
+          }
+        }
+        # best k for each class
+        # aggregation and imputation step for laplace or chisq
+        if (length(n_rules) > 0) {
+          all_rules <- as.data.frame(t(sapply(n_rules, function(rule) {
+            c(as.numeric(rule$consequent), rule$quality$support, rule$quality$statistic)
+          })))
+          names(all_rules) <- c("consequent", "support", "statistic")
+          with(all_rules
+               , tapply(statistic, consequent, mean))
+          # best ave exp acc is pred
+          dt[rows_to_impute[[v]][[k]], v] <- names(which.max(with(all_rules
+                                            , tapply(statistic, consequent, mean))))
+        }
+      }
+    }
+  } # end of la place and chi
+
+  remaining <- sum(colSums(sapply(dt, is.na)))
   if (remaining > 0) {
     warning(paste("not every missing value had a covering rule.", remaining, "remaining"))
-    if (use_default_classes) {
+    if (ari_control$use_default_classes) {
       default_classes <- sapply(sapply(dt[, var_names], table), which.max)
       names(default_classes) <- var_names
       for (v in var_names) {
@@ -301,5 +457,5 @@ ARImpute <- function(cars, dt, var_names
       }
     }
   }
-  return(dt)
+  return(dt) # TO DO: return the ability stats
 }

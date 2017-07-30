@@ -2,10 +2,10 @@
 % Please edit documentation in R/imputationtasks.R
 \name{make_cars}
 \alias{make_cars}
-\title{Creat classification rules}
+\title{Create classification rules}
 \usage{
-make_cars(dt, var_names, c_control = cars_control(method = "best_rule",
-  support = 0.1, confidence = 0.1, sort_by = "confidence"))
+make_cars(dt, var_names, c_control = cars_control(support = 0.1, confidence =
+  0.1, sort_by = "confidence"))
 }
 \description{
 Create a list of classification rules for each target viable

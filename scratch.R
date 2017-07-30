@@ -77,6 +77,12 @@ dw_mnar1$syn_control$nr_cols
 dw_mnar1$dplot$par.settings <- MyLatticeTheme
 dw_mnar1$dplot
 dw_mnar1$data_factors <- all_factor(dw_mnar1$data)
+dw_mnar1$ord_cum <- ord_cum_combine(dw_mnar1$data)
+dw_mnar1$oc_factors <- all_factor(dw_mnar1$ord_cum)
+likert_scales <- list(pos = my_vars[1:5]
+                      , neg = my_vars[6:10])
+dw_mnar1$ord_combi <- ord_combi_expand(dw_mnar1$data, likert_scales)
+dw_mnar1$co_factors <- all_factor(dw_mnar1$ord_combi)
 
 
 # cov1 has been deleted
@@ -89,19 +95,26 @@ dw_mnar2$syn_control$dep_cols
 dw_mnar2$dplot$par.settings <- MyLatticeTheme
 dw_mnar2$dplot
 dw_mnar2$data_factors <- all_factor(dw_mnar2$data)
+dw_mnar2$ord_cum <- ord_cum_combine(dw_mnar2$data)
+dw_mnar2$oc_factors <- all_factor(dw_mnar2$ord_cum)
+dw_mnar2$ord_combi <- ord_combi_expand(dw_mnar2$data, likert_scales)
+dw_mnar2$co_factors <- all_factor(dw_mnar2$ord_combi)
 
 
 # step 0. convert data to transactions
 dw_mnar1$data_trans <- as(dw_mnar1$data_factors, "transactions")
 dw_mnar2$data_trans <- as(dw_mnar2$data_factors, "transactions")
+dw_mnar1$oc_trans <- as(dw_mnar1$oc_factors, "transactions")
+dw_mnar2$oc_trans <- as(dw_mnar2$oc_factors, "transactions")
+dw_mnar1$co_trans <- as(dw_mnar1$co_factors, "transactions")
+dw_mnar2$co_trans <- as(dw_mnar2$co_factors, "transactions")
+
 
 summary(dw_mnar1$data_trans)
+summary(dw_mnar1$oc_trans)
+summary(dw_mnar1$co_trans)
 
 # step 1. Get the broadest possible ruleset
-c_control = cars_control(support = 0.5
-  , confidence = 0.5, sort_by = "confidence"
-)
-
 # step 2. Extract rules subsets
 # structure is nested lists
 # cars
@@ -115,14 +128,123 @@ c_control = cars_control(support = 0.5
 # this takes a bit of time because of writing to disc
 # parallelise?
 
+c_control = cars_control(support = 0.025
+  , confidence = 0.25, sort_by = "confidence"
+)
+oc_control = cars_control(support = 0.4
+ , confidence = 0.5, sort_by = "confidence"
+ , maxlen = 10
+)
+co_control = cars_control(support = 0.1
+  , confidence = 0.2, sort_by = "confidence"
+)
+
 cars1 <- make_cars(dw_mnar1$data_trans
                    , c_control = c_control
                    , var_names = names(mv1_sorted))
 
+oc_cars1 <- make_cars(dw_mnar1$oc_trans
+                   , c_control = oc_control
+                   , var_names = names(mv1_sorted))
+
+co_cars1 <- make_cars(dw_mnar1$co_trans
+                      , c_control = co_control
+                      , var_names = names(mv1_sorted))
+
+
+# how many rules per variable?
+summary(sapply(cars1, length))
+summary(sapply(oc_cars1, length))
+summary(sapply(co_cars1, length))
+
+
 dw_mnar1$imputed <- ARImpute(cars1, dw_mnar1$data_factors)
+
 colSums(sapply(dw_mnar1$imputed, is.na))
 dw_mnar1$imputed_num <- as.data.frame(
   lapply(dw_mnar1$imputed, as.integer))
+
+dw_mnar1$imputed_topnm <- ARImpute(cars1
+                                  , dw_mnar1$data_factors
+                                  , ari_control =
+                                    arulesimp_control(
+                                      method = "top_n_mean"
+                                      , top_n = 6
+                                      , use_default_classes = TRUE
+                                    ))
+
+dw_mnar1$imputed_topnm
+colSums(sapply(dw_mnar1$imputed_topnm, is.na))
+dw_mnar1$imputed_topnm_num <- as.data.frame(
+  lapply(dw_mnar1$imputed_topnm, as.integer))
+
+dw_mnar1$imputed_topnmjv <- ARImpute(cars1
+                                   , dw_mnar1$data_factors
+                                   , ari_control =
+                                     arulesimp_control(
+                                       method = "top_n_majv"
+                                       , top_n = 5
+                                       , use_default_classes = TRUE
+                                     ))
+
+dw_mnar1$imputed_topnmjv
+colSums(sapply(dw_mnar1$imputed_topnmjv, is.na))
+dw_mnar1$imputed_topnmjv_num <- as.data.frame(
+  lapply(dw_mnar1$imputed_topnmjv, as.integer))
+
+dw_mnar1$imputed_laplace <- ARImpute(cars1
+                                     , dw_mnar1$data_factors
+                                     , ari_control =
+                                       arulesimp_control(
+                                         method = "laplace"
+                                         , top_n = 5
+                                         , use_default_classes = TRUE
+                                       ))
+
+dw_mnar1$imputed_laplace
+colSums(sapply(dw_mnar1$imputed_laplace, is.na))
+dw_mnar1$imputed_laplace_num <- as.data.frame(
+  lapply(dw_mnar1$imputed_laplace, as.integer))
+
+dw_mnar1$imputed_weighted_chisq <- ARImpute(cars1
+                                     , dw_mnar1$data_factors
+                                     , ari_control =
+                                       arulesimp_control(
+                                         method = "weighted_chisq"
+                                         , top_n = 5
+                                         , use_default_classes = TRUE
+                                       ))
+
+dw_mnar1$imputed_weighted_chisq
+colSums(sapply(dw_mnar1$imputed_weighted_chisq, is.na))
+dw_mnar1$imputed_weighted_chisq_num <- as.data.frame(
+  lapply(dw_mnar1$imputed_weighted_chisq, as.integer))
+
+
+dw_mnar1$co_imputed <- ARImpute(co_cars1
+                                , dw_mnar1$co_factors)
+
+colSums(sapply(dw_mnar1$co_imputed, is.na))
+
+dw_mnar1$co_imputed_num <- as.data.frame(
+  lapply(dw_mnar1$co_imputed, as.integer))
+
+
+densityplot(dw$neutral_flat)
+densityplot(dw_mnar1$imputed_num$neutral_flat)
+densityplot(dw_mnar1$co_imputed_num$neutral_flat)
+densityplot(dw_mnar1$imputed_topnm_num$neutral_flat)
+densityplot(dw_mnar1$imputed_topnmjv_num$neutral_flat)
+densityplot(dw_mnar1$imputed_laplace_num$neutral_flat)
+
+densityplot(dw$strongly_agree)
+densityplot(dw_mnar1$imputed_num$strongly_agree)
+densityplot(dw_mnar1$co_imputed_num$strongly_agree)
+
+
+densityplot(dw$strongly_disagree)
+densityplot(dw_mnar1$imputed_num$strongly_disagree)
+densityplot(dw_mnar1$co_imputed_num$strongly_disagree)
 
 
 # "closing var: neutral_to_disagree rule: 5 neutral_to_agree very_strongly_disagree 2 1 row: 58 new value: 3"
