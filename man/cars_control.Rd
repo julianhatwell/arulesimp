@@ -4,7 +4,8 @@
 \alias{cars_control}
 \title{Control parameters for make_cars}
 \usage{
-cars_control(support, confidence, lift, sort_by = "confidence", maxlen)
+cars_control(antecedent, support, confidence, lift, sort_by = "confidence",
+  maxlen)
 }
 \arguments{
 \item{support}{A scalar value between 0 and 1. Minimum support to filter rules.}

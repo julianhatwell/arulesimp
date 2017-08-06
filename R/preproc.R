@@ -319,15 +319,15 @@ ord_cum_expand <- function(dt, var_names
   return(expanded)
 }
 
-#' Ordinal to cumulative binary representation
+#' Ordinal to grouped binary representation
 #'
-#' Expand ordinal variables to a group of binary variables representing cumulative values
+#' Expand ordinal variables to binary variables representing groups of adjacent values
 #'
 #' @export
-ord_cum_combine <- function(dt, var_names
+ord_grp_combine <- function(dt, var_names
                            , mn, mx
                            , stride = 1
-                           , keep_orig = FALSE) {
+                           , keep_orig = TRUE) {
   if (class(dt) != "data.frame") stop("provide a data frame")
   if (any(!(sapply(dt, class) %in% c("numeric", "integer")))) stop("all variables must be numeric, ideally integer")
   if (any(sapply(dt, class) == "numeric")) {
@@ -350,7 +350,7 @@ ord_cum_combine <- function(dt, var_names
   while (step + stride <= mx) {
     sequences <- append(sequences
                 , list(step:(step + stride)))
-    step <- step + 1
+    step <- step + stride
   }
 
   combined <- lapply(var_names, function(v) {
@@ -368,7 +368,7 @@ ord_cum_combine <- function(dt, var_names
   }
   names(combined) <- NULL
   combined <- as.data.frame(combined)
-  if (keep_orig) expanded <- cbind(dt, expanded)
+  if (keep_orig) combined <- cbind(dt, combined)
   return(combined)
 }
 
