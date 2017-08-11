@@ -77,15 +77,6 @@ dw_mnar1$syn_control$nr_cols
 dw_mnar1$dplot$par.settings <- MyLatticeTheme
 dw_mnar1$dplot
 dw_mnar1$data_factors <- all_factor(dw_mnar1$data)
-dw_mnar1$ord_grp <- ord_grp_combine(dw_mnar1$data
-                                    , stride = 2
-                                    , keep_orig = TRUE)
-dw_mnar1$og_factors <- all_factor(dw_mnar1$ord_grp)
-likert_scales <- list(pos = my_vars[1:5]
-                      , neg = my_vars[6:10])
-dw_mnar1$ord_combi <- ord_combi_expand(dw_mnar1$data, likert_scales)
-dw_mnar1$co_factors <- all_factor(dw_mnar1$ord_combi)
-
 
 # cov1 has been deleted
 names(dw_mnar2$data)
@@ -131,17 +122,17 @@ summary(dw_mnar1$co_trans)
 # this takes a bit of time because of writing to disc
 # parallelise?
 
-c_control = cars_control(support = 0.025
+c_control <- cars_control(support = 0.025
   , confidence = 0.2, sort_by = "confidence"
 )
-og_control = cars_control(antecedent =
+og_control <- cars_control(antecedent =
     setdiff(names(dw_mnar1$ord_grp), names(mv1_sorted))
   , support = 0.2
   , confidence = 0.2
   , sort_by = "confidence"
   , maxlen = 20
 )
-co_control = cars_control(support = 0.1
+co_control <- cars_control(support = 0.1
   , confidence = 0.2, sort_by = "confidence"
 )
 
@@ -175,7 +166,7 @@ dw_mnar1$imputed_topnm <- ARImpute(cars1
                                   , ari_control =
                                     arulesimp_control(
                                       method = "top_n_mean"
-                                      , top_n = 6
+                                      , top_n = 7
                                       , use_default_classes = TRUE
                                     )) # add rounding choice
 
@@ -189,7 +180,7 @@ dw_mnar1$imputed_topnmjv <- ARImpute(cars1
                                    , ari_control =
                                      arulesimp_control(
                                        method = "top_n_majv"
-                                       , top_n = 5
+                                       , top_n = 7
                                        , use_default_classes = TRUE
                                      ))
 
@@ -251,12 +242,13 @@ dw_mnar1$imputed_chiSquared_num <- as.data.frame(
   lapply(dw_mnar1$imputed_chiSquared, as.integer))
 
 
-dw_mnar1$imputed_weighted_chisq <- ARImpute(cars1
-                                     , dw_mnar1$data_factors
-                                     , ari_control =
+dw_mnar1$imputed_weighted_chisq <- ARImpute(cars1_chi
+                                      , dw_mnar1$data_factors
+                                      , ari_control =
                                        arulesimp_control(
-                                         method = "weighted_chisq"
-                                         , top_n = 5
+                                         method = "consequent_frequency"
+                                         , top_n = 7
+                                         , weighted_chisq = TRUE
                                          , use_default_classes = TRUE
                                        ))
 
@@ -286,8 +278,9 @@ dw_mnar1$og_chisq_imputed <- ARImpute(og_cars1
                                 , dw_mnar1$og_factors
                                 , ari_control =
                                   arulesimp_control(
-                                    method = "weighted_chisq"
+                                    method = "consequent_frequency"
                                     , top_n = 5
+                                    , weighted_chisq = TRUE
                                     , use_default_classes = TRUE))
 
 colSums(sapply(dw_mnar1$og_chisq_imputed, is.na))
@@ -298,11 +291,15 @@ dw_mnar1$og_chisq_imputed_num <- as.data.frame(
 
 
 # MICE style
+library(arules)
 dw_mnar1$imputed_iter_best <- ARImpute_iter(dw_mnar1$data
                                             , mv1_sorted
-                                            , max_iter = 5
-                                            , target_convergence = 5
-                                            # default ari and c control
+                                            , iter_control =
+                                              iteration_control(
+                                                method = "none"
+                                                , max_iter = 5
+                                                , target_convergence = 50)
+                                                # default ari and c control
 )
 
 dw_mnar1$imputed_iter_best
@@ -312,22 +309,22 @@ dw_mnar1$imputed_iter_best_num <- as.data.frame(
 
 
 dw_mnar1$imputed_iter_chisq <- ARImpute_iter(dw_mnar1$data
-                                            , mv1_sorted
-                                            , iter_control =
-                                              iteration_control(
-                                                method = "propensity"
-                                                , splits = 4
-                                                , max_iter = 10
-                                                , target_convergence = 5)
-                                            , ari_control =
-                                              arulesimp_control(
-                                                method = "weighted_chisq"
-                                                , top_n = 6
-                                                , use_default_classes = TRUE)
-                                            , c_control = cars_control(
-                                              support = 0.025
-                                              , confidence = 0.2
-                                              , sort_by = "chiSquared")
+                                , mv1_sorted
+                                , iter_control =
+                                  iteration_control(
+                                    method = "propensity"
+                                    , splits = 4
+                                    , max_iter = 10
+                                    , target_convergence = 5)
+                                , ari_control =
+                                  arulesimp_control(
+                                    method = "consequent_frequency"
+                                    , use_default_classes = TRUE
+                                    , weighted_chisq = TRUE)
+                                , c_control = cars_control(
+                                  support = 0.025
+                                  , confidence = 0.2
+                                  , sort_by = "chiSquared")
 )
 
 
@@ -337,23 +334,35 @@ dw_mnar1$imputed_iter_chisq_num <- as.data.frame(
   lapply(dw_mnar1$imputed_iter_chisq, as.integer))
 
 
+dw_mnar1$ord_grp <- ord_grp_combine(dw_mnar1$data
+                                    , stride = 2
+                                    , keep_orig = TRUE)
+dw_mnar1$og_factors <- all_factor(dw_mnar1$ord_grp)
+likert_scales <- list(pos = my_vars[1:5]
+                      , neg = my_vars[6:10])
+dw_mnar1$ord_combi <- ord_combi_expand(dw_mnar1$data, likert_scales)
+dw_mnar1$co_factors <- all_factor(dw_mnar1$ord_combi)
+
+
+
+
 dw_mnar1$imputed_iter_co_chisq <- ARImpute_iter(dw_mnar1$ord_combi
                                              , mv1_sorted
                                              , max_iter = 10
                                              , target_convergence = 5
                                              , ari_control =
                                                arulesimp_control(
-                                                 method = "weighted_chisq"
-                                                 , top_n = 5
-                                                 , use_default_classes = TRUE
-                                               )
+                                                 method = "top_n_mean"
+                                                 , top_n = 20
+                                                 , use_default_classes = TRUE)
 )
+
 dw_mnar1$imputed_iter_co_chisq
 colSums(sapply(dw_mnar1$imputed_iter_co_chisq, is.na))
 dw_mnar1$imputed_iter_co_chisq_num <- as.data.frame(
   lapply(dw_mnar1$imputed_iter_co_chisq, as.integer))
 
-
+library(lattice)
 densityplot(dw$neutral_flat)
 densityplot(dw_mnar1$imputed_num$neutral_flat)
 densityplot(dw_mnar1$imputed_cons_freq_num$neutral_flat)
@@ -361,11 +370,11 @@ densityplot(dw_mnar1$imputed_topnm_num$neutral_flat)
 densityplot(dw_mnar1$imputed_topnmjv_num$neutral_flat)
 densityplot(dw_mnar1$imputed_laplace_num$neutral_flat)
 densityplot(dw_mnar1$imputed_chiSquared_num$neutral_flat)
-
-densityplot(dw_mnar1$co_imputed_num$neutral_flat)
 densityplot(dw_mnar1$imputed_weighted_chisq_num$neutral_flat)
 densityplot(dw_mnar1$imputed_iter_best_num$neutral_flat)
 densityplot(dw_mnar1$imputed_iter_chisq_num$neutral_flat)
+
+densityplot(dw_mnar1$co_imputed_num$neutral_flat)
 densityplot(dw_mnar1$og_imputed_num$neutral_flat)
 densityplot(dw_mnar1$og_chisq_imputed_num$neutral_flat)
 
@@ -376,11 +385,11 @@ densityplot(dw_mnar1$imputed_topnm_num$multimodal)
 densityplot(dw_mnar1$imputed_topnmjv_num$multimodal)
 densityplot(dw_mnar1$imputed_laplace_num$multimodal)
 densityplot(dw_mnar1$imputed_chiSquared_num$multimodal)
-
-densityplot(dw_mnar1$co_imputed_num$multimodal)
 densityplot(dw_mnar1$imputed_weighted_chisq_num$multimodal)
 densityplot(dw_mnar1$imputed_iter_best_num$multimodal)
 densityplot(dw_mnar1$imputed_iter_chisq_num$multimodal)
+
+densityplot(dw_mnar1$co_imputed_num$multimodal)
 densityplot(dw_mnar1$og_imputed_num$multimodal)
 densityplot(dw_mnar1$og_chisq_imputed_num$multimodal)
 
@@ -391,13 +400,14 @@ densityplot(dw_mnar1$imputed_topnm_num$neutral_to_disagree)
 densityplot(dw_mnar1$imputed_topnmjv_num$neutral_to_disagree)
 densityplot(dw_mnar1$imputed_laplace_num$neutral_to_disagree)
 densityplot(dw_mnar1$imputed_chiSquared_num$neutral_to_disagree)
-
-densityplot(dw_mnar1$co_imputed_num$neutral_to_disagree)
 densityplot(dw_mnar1$imputed_weighted_chisq_num$neutral_to_disagree)
 densityplot(dw_mnar1$imputed_iter_best_num$neutral_to_disagree)
 densityplot(dw_mnar1$imputed_iter_chisq_num$neutral_to_disagree)
+
+densityplot(dw_mnar1$co_imputed_num$neutral_to_disagree)
 densityplot(dw_mnar1$og_imputed_num$neutral_to_disagree)
 densityplot(dw_mnar1$og_chisq_imputed_num$neutral_to_disagree)
+
 
 densityplot(dw$strongly_agree)
 densityplot(dw_mnar1$imputed_num$strongly_agree)
@@ -406,11 +416,11 @@ densityplot(dw_mnar1$imputed_topnm_num$strongly_agree)
 densityplot(dw_mnar1$imputed_topnmjv_num$strongly_agree)
 densityplot(dw_mnar1$imputed_laplace_num$strongly_agree)
 densityplot(dw_mnar1$imputed_chiSquared_num$strongly_agree)
-
-densityplot(dw_mnar1$co_imputed_num$strongly_agree)
 densityplot(dw_mnar1$imputed_weighted_chisq_num$strongly_agree)
 densityplot(dw_mnar1$imputed_iter_best_num$strongly_agree)
 densityplot(dw_mnar1$imputed_iter_chisq_num$strongly_agree)
+
+densityplot(dw_mnar1$co_imputed_num$strongly_agree)
 densityplot(dw_mnar1$og_imputed_num$strongly_agree)
 densityplot(dw_mnar1$og_chisq_imputed_num$strongly_agree)
 
@@ -422,23 +432,15 @@ densityplot(dw_mnar1$imputed_topnm_num$strongly_disagree)
 densityplot(dw_mnar1$imputed_topnmjv_num$strongly_disagree)
 densityplot(dw_mnar1$imputed_laplace_num$strongly_disagree)
 densityplot(dw_mnar1$imputed_chiSquared_num$strongly_disagree)
-
-densityplot(dw_mnar1$co_imputed_num$strongly_disagree)
 densityplot(dw_mnar1$imputed_weighted_chisq_num$strongly_disagree)
 densityplot(dw_mnar1$imputed_iter_best_num$strongly_disagree)
+densityplot(dw_mnar1$imputed_iter_chisq_num$strongly_disagree)
+
+densityplot(dw_mnar1$co_imputed_num$strongly_disagree)
 densityplot(dw_mnar1$og_imputed_num$very_strongly_disagree)
 densityplot(dw_mnar1$og_chisq_imputed_num$very_strongly_disagree)
 
 # with propensity
-
-iter_control <- list(method = "propensity"
-                     , splits = 4
-                     , class_balance = "ovun")
-ari_control =
-  arulesimp_control(
-    method = "weighted_chisq"
-    , top_n = 3
-    , use_default_classes = TRUE)
 
 
 
@@ -717,3 +719,47 @@ if (grepl("^top\\_n", ari_control$method)) {
     }
   }
 } # end of top_n
+
+
+for (k in seq_along(rows_to_impute[[v]])) {
+  print(paste("start find rules for row", rows_to_impute[[v]][k]))
+  n_rules <- list()
+  n <- 0
+  for (i in 1:num_rules) {
+    data_value <- as.character(dt[rows_to_impute[[v]][k]
+                                  , as.character(cars[[v]][[i]]$antecedent$key)])
+    condition_value <- as.character(cars[[v]][[i]]$antecedent$value)
+    if (identical(data_value, condition_value)) {
+      print(paste("found rule", i))
+      n <- n + 1
+      n_rules[[n]] <- cars[[v]][[i]]
+      if (ari_control$method == "weighted_chisq") {
+        n_rules[[n]]$quality$statistic <- n_rules[[n]]$quality$chiSquared / max_chi[i]
+      }
+      if (ari_control$method == "laplace") {
+        n_rules[[n]]$quality$statistic <- n_rules[[n]]$quality$laplace
+      }
+    }
+  }
+  # best k for each class
+  # aggregation and imputation step for laplace or chisq
+  print(paste("imputing row", k))
+  if (length(n_rules) > 0) {
+    all_rules <- as.data.frame(t(sapply(n_rules, function(rule) {
+      c(as.numeric(rule$consequent), rule$quality$support, rule$quality$statistic)
+    })))
+    names(all_rules) <- c("consequent", "support", "statistic")
+    if (!(is.null(ari_control$top_n))) {
+      consequent_stat <- with(all_rules
+                              , tapply(statistic, consequent
+                                       , function(st) {
+                                         sort(st, decreasing = TRUE)[1:ari_control$top_n]
+                                       }))
+      consequent_stat <- names(which.max(lapply(consequent_stat, mean, na.rm = TRUE)))
+    } else {
+      dt[rows_to_impute[[v]][[k]], v] <- names(which.max(with(all_rules
+                                                              , tapply(statistic, consequent, mean))))
+    }
+  }
+}
+}

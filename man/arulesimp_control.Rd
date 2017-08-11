@@ -4,7 +4,8 @@
 \alias{arulesimp_control}
 \title{Control parameters for ARImputation}
 \usage{
-arulesimp_control(method, use_default_classes, rows_to_impute, top_n)
+arulesimp_control(method, use_default_classes, rows_to_impute, top_n,
+  weighted_chisq)
 }
 \arguments{
 \item{ruleset}{An object of class rules (package arules)}

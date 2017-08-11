@@ -7,9 +7,9 @@
 ci_cover(ci, theta_p)
 }
 \arguments{
-\item{ci}{A two column matrix or data frame containing the lower and upper confidence bounds,}
+\item{ci}{A two column matrix or data frame containing the lower and upper confidence bounds.}
 
-\item{theta_p}{A scalar numeric. The population or reference value}
+\item{theta_p}{A scalar numeric. The population or reference value.}
 }
 \description{
 Calculate the confidence interval coverage of a parameter with respect to another value, usually the population parameter. Returns the proportion of CIs that contain the reference value.

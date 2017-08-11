@@ -99,7 +99,7 @@ all_factor <- function(dt
 #' @export
 missing_values <- function(dt
                            , sorted = TRUE) {
-  if (class(dt) == "mim") {
+  if ("mim" %in% class(dt)) {
     mv <- colSums(dt$mim)
   } else {
     mv <- sapply(dt, function(x) {

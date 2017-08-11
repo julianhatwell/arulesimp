@@ -53,7 +53,7 @@ quality_measures <- function(theta, theta_p) {
   mse <- mse(theta, theta_p)
   return(list(
     mean = mean(theta, na.rm = TRUE)
-    , sd = sd(theta, na.rm = TRUE)
+    , st_err = sd(theta, na.rm = TRUE)
     , iqr = IQR(theta, na.rm = TRUE)
     , rel_bias = rel_bias(theta, theta_p)
     , st_bias = st_bias(theta, theta_p)
@@ -67,8 +67,8 @@ quality_measures <- function(theta, theta_p) {
 #' Confidence Interval Coverage
 #'
 #' Calculate the confidence interval coverage of a parameter with respect to another value, usually the population parameter. Returns the proportion of CIs that contain the reference value.
-#' @param ci A two column matrix or data frame containing the lower and upper confidence bounds,
-#' @param theta_p A scalar numeric. The population or reference value
+#' @param ci A two column matrix or data frame containing the lower and upper confidence bounds.
+#' @param theta_p A scalar numeric. The population or reference value.
 #'
 #' @export
 ci_cover <- function(ci, theta_p) {
@@ -77,14 +77,15 @@ ci_cover <- function(ci, theta_p) {
   return(sum(cic)/length(cic))
 }
 
-#' Cronbach's alpha Confidence Interval
+
+#' Cronbachs alpha Confidence Interval
 #'
 #' Calculate a confidence interval for Cronbach's alpha using the F-distribution
-#'
 #' @param a A scalar numeric. The value of alpha to be tested
-#' @param n A scalar numeric. The number of cases (subject, respondents).
-#' @param p A scalar numeric. The number of item in the scale.
-#' @param sig A scalar numeric between 0 and 1. Default 0.05 (95% confidence).
+#' @param n A scalar numeric. The number of cases (subject, respondents)
+#' @param p A scalar numeric. The number of items in the scale
+#' @param sig A scalar numeric between 0 and 1. Default 0.05 (95% confidence)
+#' @param include A scalar boolean. Whether to include the input statistic in the output
 #'
 #' @export
 alpha_ci <- function(a, n, p, sig = 0.05, include_a = TRUE) {
@@ -108,5 +109,33 @@ alpha_ci <- function(a, n, p, sig = 0.05, include_a = TRUE) {
     return(cbind(ci_lower = ci_lower
                  , ci_upper = ci_upper))
   }
+}
+
+
+#' Students T based confidence interval
+#'
+#' Convenience function to calculate confidence interval for a statistic and its standard error.
+#' @param a A scalar numeric. The value to be tested.
+#' @param n A scalar numeric. The number of cases (subject, respondents).
+#' @param sig A scalar numeric between 0 and 1. Default 0.05 (95% confidence).
+#' @param include_s A scalar boolean. Whether to include the input statistic in the output.
+#'
+#' @export
+t_ci <- function(stat, st_dev, n, sig = 0.05, include_s = TRUE) {
+  if (class(include_s) != "logical" && length(include_s) != 1) stop("include must be a logical scalar")
+  if (sig < 0 || sig > 1) stop("sig must be between 0 and 1")
+
+  ci_lower <- stat + (st_dev / sqrt(n-1)) * qt(sig/2, df = n - 1)
+  ci_upper <- stat + (st_dev / sqrt(n-1)) * -qt(sig/2, df = n - 1)
+
+  if (include_s) {
+    return(cbind(statistic = stat
+                 , ci_lower = ci_lower
+                 , ci_upper = ci_upper))
+  } else {
+    return(cbind(ci_lower = ci_lower
+                 , ci_upper = ci_upper))
+  }
 
 }
+
