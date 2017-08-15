@@ -335,7 +335,7 @@ ARImpute <- function(cars, dt, var_names
     var_names <- names(missing_values(dt))
   }
   if (!("arulesimp_control" %in% class(ari_control))) stop("please provide control paramaters with arulesimp_control function")
-  if (is.null(ari_control$rows_to_impute)) rows_to_impute <- find_rows_to_impute(dt)
+  rows_to_impute <- if (is.null(ari_control$rows_to_impute)) find_rows_to_impute(dt) else ari_control$rows_to_impute
 
   mn <- min(sapply(dt, as.numeric), na.rm = TRUE)
   mx <- max(sapply(dt, as.numeric), na.rm = TRUE)
@@ -350,17 +350,21 @@ ARImpute <- function(cars, dt, var_names
       #   all_match <- ifelse(is.na(all_match), FALSE, all_match)
       #   names(all_match) <- as.character(rows_to_impute[[v]])
       # } else {
-        ante <- matrix(rep(condition_value, length(rows_to_impute[[v]]))
-                       , ncol = length(condition_value)
-                       , byrow = TRUE)
-        all_match <- dt[rows_to_impute[[v]], as.character(cars[[v]][[rule]]$antecedent$key)] == ante
-        all_match <- ifelse(is.na(all_match), FALSE, all_match)
-        all_match <- apply(all_match, 1, all)
-        names(all_match) <- as.character(rows_to_impute[[v]])
+      ante <- matrix(rep(condition_value, length(rows_to_impute[[v]]))
+                     , ncol = length(condition_value)
+                     , byrow = TRUE)
+      all_match <- dt[rows_to_impute[[v]], as.character(cars[[v]][[rule]]$antecedent$key)] == ante
+      all_match <- ifelse(is.na(all_match), FALSE, all_match)
+      all_match <- apply(all_match, 1, all)
+      names(all_match) <- if (is.null(names(rows_to_impute[[v]]))) {
+        as.character(rows_to_impute[[v]])
+      } else {
+        names(rows_to_impute[[v]])
+      }
       # }
 
       if (sum(all_match) == 0) {
-        warning(paste("no matching rules for", v))
+        warning(paste("no matching rows for rule", rule))
         return(NULL)
       }
       match_rows <- names(all_match[all_match == TRUE])
@@ -380,7 +384,8 @@ ARImpute <- function(cars, dt, var_names
     }
 
     # this just gives a re-ordering
-    if (ari_control$weighted_chisq) {
+    # additional condition if only one rule, no re-ordering
+    if (ari_control$weighted_chisq && ncol(row_matches) > 1) {
       r_tot <- nrow(dt) - length(rows_to_impute[[v]])
       src_rows <- (1:nrow(dt))[-rows_to_impute[[v]]]
       num_rules <- length(cars[[v]])
@@ -412,7 +417,7 @@ ARImpute <- function(cars, dt, var_names
         return(w_chi)
       })
       row_matches <- row_matches[, order(w_chi, decreasing = TRUE)]
-    } # end of la place and chi
+    } # weighted chi
 
     if (ari_control$method == "best_rule") {
       dt[rows_to_impute[[v]], v] <- apply(row_matches, 1, function(rom) {
@@ -463,44 +468,46 @@ ARImpute <- function(cars, dt, var_names
     } # end of consequent freqency
 
   }
-  remaining <- if (length(var_names) > 1) {
-    sum(colSums(sapply(dt[, var_names], is.na)))
-  } else {
-    sum(is.na(dt[[var_names]]))
-  }
-  if (remaining > 0) {
-    warning(paste("not every missing value had a covering rule.", remaining, "remaining"))
-    if (ari_control$use_default_classes == 1) {
-      default_classes <- if (length(var_names) > 1) {
-        sapply(lapply(dt[, var_names], table), which.max)
-      } else {
-        names(which.max(table(dt[, var_names])))
-      }
+  # deal with remaining
+  remaining <- missing_values(dt[, var_names])
+  if (ari_control$use_default_classes != 0) {
+    if (sum(remaining) > 0) {
+      warning(paste("not every missing value had a covering rule.", remaining, "remaining. "))
+      mv <- names(remaining)
 
-      names(default_classes) <- var_names
-      for (v in var_names) {
-        dt[[v]] <- ifelse(is.na(dt[[v]]), default_classes[v], dt[[v]])
+      if (ari_control$use_default_classes == 1) {
+        default_classes <- if (length(remaining) > 1) {
+          sapply(lapply(dt[, mv], table), which.max)
+        } else {
+          names(which.max(table(dt[, mv])))
+        }
+        names(default_classes) <- mv
+        for (v in mv) {
+          dt[is.na(dt[v]), v] <- as.character(default_classes[v])
+        }
       }
       if (ari_control$use_default_classes == 2) {
-        add_mat <- as.data.frame(matrix(rep(mn:mx, ncol(dt)), ncol = ncol(dt), nrow = num_classes))
-        names(add_mat) <- names(dt)
-        dt_temp <- rbind(dt, add_mat)
+        add_mat <- as.data.frame(matrix(rep(mn:mx, length(remaining))
+                                        , ncol = length(remaining)
+                                        , nrow = num_classes))
+        names(add_mat) <- mv
+        dt_temp <- rbind(dt[, mv], add_mat)
         default_classes <- lapply(
-          lapply(dt_temp[, var_names], table)
+          lapply(dt_temp[, mv], table)
           , function(df) {
           df <- df - 1
           df / sum(df)
           })
-        mv <- missing_values(dt)
-        to_replace <- lapply(var_names, function(v) {
+
+        to_replace <- lapply(mv, function(v) {
           sample(mn:mx
-                 , size = mv[v]
+                 , size = remaining[v]
                  , prob = default_classes[[v]]
                  , replace = TRUE)
         })
-        names(to_replace) <- var_names
-        for (v in var_names) {
-          dt[is.na(dt[v]), v] <- to_replace[[v]]
+        names(to_replace) <- mv
+        for (v in mv) {
+          dt[is.na(dt[v]), v] <- as.character(to_replace[[v]])
         }
       }
     }
@@ -543,6 +550,8 @@ iteration_control <- function(method
 #' @export
 ARImpute_iter <- function(dt, missing_vals
                           , ...) {
+  if (missing(missing_vals)) missing_vals <- missing_values(dt)
+
   dots <- list(...)
   if(length(dots) != 0) {
     if(!(is.null(dots$ari_control))) {
@@ -568,12 +577,12 @@ ARImpute_iter <- function(dt, missing_vals
       if (!("iteration_control" %in% class(iter_control))) {
         warning("iter_control provided was not valid. using default settings. try using iteration_control() to create iter_control")
         c_control = cars_control(support = 0.1, confidence = 0.1, sort_by = "confidence")
-      } else { iter_control =
+      }
+    } else { iter_control =
         iteration_control(method = "none"
         , max_iter = 5
         , target_convergence = 5 * length(missing_vals))
       }
-    }
   }
   if(length(dots) == 0) {
     ari_control = arulesimp_control(method = "best_rule", use_default_classes = TRUE)
@@ -602,9 +611,13 @@ ARImpute_iter <- function(dt, missing_vals
   }))
 
   ii <- 0
+  last_m_convergence <- 0
   convergence <- iter_control$target_convergence + 1
+  m_convergence <- mean(sqrt(convergence^2))
   while (ii < iter_control$max_iter &&
-         mean(sqrt(convergence^2)) > iter_control$target_convergence) {
+         m_convergence > iter_control$target_convergence &&
+         m_convergence != last_m_convergence) {
+    last_m_convergence <- m_convergence
     ii <- ii + 1
     dt_temp_compare <- dt_impute
     splits <- as.matrix(1:nrow(dt), ncol = 1)
@@ -628,12 +641,12 @@ ARImpute_iter <- function(dt, missing_vals
             p = 0.5
           }
           if (!is.null(iter_control$class_balance$method)) {
-            N = iter_control$class_balance$method
+            method = iter_control$class_balance$method
           } else {
             method = "both"
           }
-          dt_propensity <- ROSE::ovun.sample(fmla
-                                             , data=dt_propensity
+          dt_propensity <- ROSE::ovun.sample(formula = fmla
+                                             , data = dt_propensity
                                              , N = N
                                              , p = p
                                              , method = method)$data
@@ -648,7 +661,7 @@ ARImpute_iter <- function(dt, missing_vals
           splits.propensity[ceiling(sh[1]):floor(sh[2])]
         })
       }
-      for (jj in ncol(splits)) {
+      for (jj in 1:ncol(splits)) {
         cars <- make_cars(all_factor(dt_impute[splits[, jj], ])
                           , c_control = c_control
                           , var_names = v)
@@ -662,12 +675,13 @@ ARImpute_iter <- function(dt, missing_vals
         if (ncol(splits) > 1) print(paste("processed", v, "split", jj))
       }
       convergence <- sapply(var_names, function(v) {
-        sum(dt_impute[[v]] - dt_temp_compare[[v]])
+        sum(dt_impute[[v]] - dt_temp_compare[[v]], na.rm = TRUE) + sum(is.na(dt_impute[[v]]))
       })
+      m_convergence <- mean(sqrt(convergence^2))
       print(paste("imputed", v, "iteration", ii))
     }
     print(convergence)
-    print(mean(sqrt(convergence^2)))
+    print(m_convergence)
   }
   return(dt_impute)
 }
