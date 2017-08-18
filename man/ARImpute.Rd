@@ -5,7 +5,7 @@
 \title{ARImputation}
 \usage{
 ARImpute(cars, dt, var_names, ari_control = arulesimp_control(method =
-  "best_rule", use_default_classes = TRUE))
+  "best_rule", use_default_classes = 1))
 }
 \description{
 Association Rules-based Imputation

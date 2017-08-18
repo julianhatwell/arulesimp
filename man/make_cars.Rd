@@ -4,7 +4,7 @@
 \alias{make_cars}
 \title{Create classification rules}
 \usage{
-make_cars(dt, var_names, c_control = cars_control(consequent = NULL, support =
+make_cars(dt, var_names, c_control = cars_control(antecedent = NULL, support =
   0.1, confidence = 0.1, sort_by = "confidence"))
 }
 \description{

@@ -331,8 +331,10 @@ ord_grp_combine <- function(dt, var_names
   if (class(dt) != "data.frame") stop("provide a data frame")
   if (any(!(sapply(dt, class) %in% c("numeric", "integer")))) stop("all variables must be numeric, ideally integer")
   if (any(sapply(dt, class) == "numeric")) {
-    warning("non-integer values were found. they will be rounded and converted")
-    dt <- sapply(dt, as.integer)
+    warning("non-integer types were found. they will be rounded and converted")
+    temp_names <- names(dt)
+    dt <- data.frame(sapply(dt, as.integer))
+    names(dt) <- temp_names
   }
   if (missing(var_names)) var_names <- names(dt)
   if (!(class(stride) %in% c("numeric", "integer"))) stop("stride must be scalar numeric, ideally integer")
@@ -397,6 +399,7 @@ ord_combi_expand <- function(dt, likert_scales
       y <- setdiff(x, x[i])
       res[, i] <- round(rowMeans(dt[, y], na.rm = TRUE))
     }
+    res <- ifelse(is.nan(res), NA, res)
     return(res)
   })
 

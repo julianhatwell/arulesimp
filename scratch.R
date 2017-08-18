@@ -2,6 +2,7 @@
 rm(list = ls())
 library(lattice)
 library(arulesimp)
+library(arules)
 source("C:\\Dev\\Study\\R\\R_Themes\\MarketingTheme.R")
 set.seed(1020384)
 
@@ -764,6 +765,9 @@ for (k in seq_along(rows_to_impute[[v]])) {
 }
 }
 
+
+library(arulesimp)
+library(arules)
 source("C:\\Dev\\Study\\R\\likertimpute\\run_experiments_header.R")
 source("C:\\Dev\\Study\\R\\likertimpute\\synth_wu_data.R")
 
@@ -858,8 +862,6 @@ cars_conf <-
           , c_control = c_control
           , var_names = names(mv_sorted))
 
-
-c_control$sort_by <- "chiSquared"
 cars_chi <- make_cars(ti_factor
                       , c_control = c_control
                       , var_names = names(mv_sorted))
@@ -872,6 +874,288 @@ cars_lap <- make_cars(ti_factor
 dt <- ti_factor
 dt <- ti_data
 cars <- cars_lap
+
+ti_combi <- ord_combi_expand(ti_data[1:12]
+                             , likert_scales =
+                               list(A = names(ti_data[1:6])
+                                    , B = names(ti_data[7:12]))
+                             , keep_orig = TRUE)
+ti_combi <- cbind(ti_combi, ti_data[, 13:14])
+ti_combi_fac <- all_factor(ti_combi)
+
+co_control <- cars_control(support = 0.05
+                           , confidence = 0.1
+                           , sort_by = "chiSquared"
+)
+co_cars <- make_cars(ti_combi_fac
+                      , c_control = co_control
+                      , var_names = names(mv_sorted))
+
+dt <- ti_combi_fac
+cars <- co_cars
+var_names <- names(mv_sorted)
+
+ARImpute(cars_chi, ti_data, var_names = names(mv_sorted))
+ARImpute(co_cars, ti_combi_fac, var_names = names(mv_sorted))[1:12]
+
+
+ti_og_data <- ord_grp_combine(ti_data[, 1:12]
+                              , stride = 2
+                              , keep_orig = TRUE)
+ti_og_data <- cbind(ti_og_data, ti_data[, 13:14])
+og_control <- cars_control(antecedent =
+                             setdiff(names(ti_og_data)
+                                     , names(mv_sorted))
+                           , support = 0.2
+                           , confidence = 0.2
+                           , maxlen = 7
+                           , sort_by = "chiSquared")
+
+og_cars <- make_cars(ti_og_data
+                      , c_control = og_control
+                      , var_names = names(mv_sorted))
+
+
+
+
+
+
+
+
+# how many rules per variable?
+summary(sapply(cars1, length))
+summary(sapply(og_cars1, length))
+summary(sapply(co_cars1, length))
+
+# default best rule
+dw_mnar1$imputed <- ARImpute(cars1, dw_mnar1$data_factors)
+
+colSums(sapply(dw_mnar1$imputed, is.na))
+dw_mnar1$imputed_num <- as.data.frame(
+  lapply(dw_mnar1$imputed, as.integer))
+
+dw_mnar1$imputed_topnm <- ARImpute(cars1
+                                   , dw_mnar1$data_factors
+                                   , ari_control =
+                                     arulesimp_control(
+                                       method = "top_n_mean"
+                                       , top_n = 7
+                                       , use_default_classes = TRUE
+                                     )) # add rounding choice
+
+dw_mnar1$imputed_topnm
+colSums(sapply(dw_mnar1$imputed_topnm, is.na))
+dw_mnar1$imputed_topnm_num <- as.data.frame(
+  lapply(dw_mnar1$imputed_topnm, as.integer))
+
+dw_mnar1$imputed_topnmjv <- ARImpute(cars1
+                                     , dw_mnar1$data_factors
+                                     , ari_control =
+                                       arulesimp_control(
+                                         method = "top_n_majv"
+                                         , top_n = 7
+                                         , use_default_classes = TRUE
+                                       ))
+
+dw_mnar1$imputed_topnmjv
+colSums(sapply(dw_mnar1$imputed_topnmjv, is.na))
+dw_mnar1$imputed_topnmjv_num <- as.data.frame(
+  lapply(dw_mnar1$imputed_topnmjv, as.integer))
+
+dw_mnar1$imputed_cons_freq <- ARImpute(cars1
+                                       , dw_mnar1$data_factors
+                                       , ari_control =
+                                         arulesimp_control(
+                                           method = "consequent_frequency"
+                                           , top_n = 5
+                                           , use_default_classes = TRUE
+                                         ))
+
+dw_mnar1$imputed_cons_freq
+colSums(sapply(dw_mnar1$imputed_cons_freq, is.na))
+dw_mnar1$imputed_cons_freq_num <- as.data.frame(
+  lapply(dw_mnar1$imputed_cons_freq, as.integer))
+
+c_control$sort_by <- "laplace"
+cars1_lap <- make_cars(dw_mnar1$data_trans
+                       , c_control = c_control
+                       , var_names = names(mv1_sorted))
+
+dw_mnar1$imputed_laplace <- ARImpute(cars1_lap
+                                     , dw_mnar1$data_factors
+                                     , ari_control =
+                                       arulesimp_control(
+                                         method = "top_n_mean"
+                                         , top_n = 10
+                                         , use_default_classes = TRUE
+                                       ))
+
+dw_mnar1$imputed_laplace
+colSums(sapply(dw_mnar1$imputed_laplace, is.na))
+dw_mnar1$imputed_laplace_num <- as.data.frame(
+  lapply(dw_mnar1$imputed_laplace, as.integer))
+
+c_control$sort_by <- "chiSquared"
+cars1_chi <- make_cars(dw_mnar1$data_trans
+                       , c_control = c_control
+                       , var_names = names(mv1_sorted))
+
+dw_mnar1$imputed_chiSquared <- ARImpute(cars1_chi
+                                        , dw_mnar1$data_factors
+                                        , ari_control =
+                                          arulesimp_control(
+                                            method = "top_n_majv"
+                                            , top_n = 10
+                                            , use_default_classes = TRUE
+                                          ))
+
+dw_mnar1$imputed_chiSquared
+colSums(sapply(dw_mnar1$imputed_chiSquared, is.na))
+dw_mnar1$imputed_chiSquared_num <- as.data.frame(
+  lapply(dw_mnar1$imputed_chiSquared, as.integer))
+
+
+dw_mnar1$imputed_weighted_chisq <- ARImpute(cars1_chi
+                                            , dw_mnar1$data_factors
+                                            , ari_control =
+                                              arulesimp_control(
+                                                method = "consequent_frequency"
+                                                , top_n = 7
+                                                , weighted_chisq = TRUE
+                                                , use_default_classes = TRUE
+                                              ))
+
+dw_mnar1$imputed_weighted_chisq
+colSums(sapply(dw_mnar1$imputed_weighted_chisq, is.na))
+dw_mnar1$imputed_weighted_chisq_num <- as.data.frame(
+  lapply(dw_mnar1$imputed_weighted_chisq, as.integer))
+
+
+dw_mnar1$co_imputed <- ARImpute(co_cars1
+                                , dw_mnar1$co_factors)
+
+colSums(sapply(dw_mnar1$co_imputed, is.na))
+
+dw_mnar1$co_imputed_num <- as.data.frame(
+  lapply(dw_mnar1$co_imputed, as.integer))
+
+dw_mnar1$og_imputed <- ARImpute(og_cars1
+                                , dw_mnar1$og_factors)
+
+colSums(sapply(dw_mnar1$og_imputed, is.na))
+
+dw_mnar1$og_imputed_num <- as.data.frame(
+  lapply(dw_mnar1$og_imputed, as.integer))
+
+dw_mnar1$og_chisq_imputed <- ARImpute(og_cars1
+                                      , dw_mnar1$og_factors
+                                      , ari_control =
+                                        arulesimp_control(
+                                          method = "consequent_frequency"
+                                          , top_n = 5
+                                          , weighted_chisq = TRUE
+                                          , use_default_classes = TRUE))
+
+colSums(sapply(dw_mnar1$og_chisq_imputed, is.na))
+
+dw_mnar1$og_chisq_imputed_num <- as.data.frame(
+  lapply(dw_mnar1$og_chisq_imputed, as.integer))
+
+
+
+
+
+
+
+
+imputations <- list(bestrule = ARImpute(cars_conf, ti_factor
+                                        , ari_control =
+                                          arulesimp_control(
+                                            method = "best_rule"
+                                            , use_default_classes = 0))
+                    , topnm3 = ARImpute(cars_conf, ti_factor
+                                        , ari_control =
+                                          arulesimp_control(
+                                            method = "top_n_mean"
+                                            , top_n = 3
+                                            , use_default_classes = 0
+                                            , weighted_chisq = FALSE
+                                          ))
+                    , topnm7 = ARImpute(cars_conf, ti_factor
+                                        , ari_control =
+                                          arulesimp_control(
+                                            method = "top_n_mean"
+                                            , top_n = 7
+                                            , use_default_classes = 0
+                                            , weighted_chisq = FALSE
+                                          ))
+                    , topnm = ARImpute(cars_conf, ti_factor
+                                       , ari_control =
+                                         arulesimp_control(
+                                           method = "top_n_mean"
+                                           , use_default_classes = 0
+                                           , weighted_chisq = FALSE
+                                         ))
+                    , topnmjv3 = ARImpute(cars_conf, ti_factor
+                                          , ari_control =
+                                            arulesimp_control(
+                                              method = "top_n_majv"
+                                              , top_n = 3
+                                              , use_default_classes = 0
+                                              , weighted_chisq = FALSE
+                                            ))
+                    , topnmjv7 = ARImpute(cars_conf, ti_factor
+                                          , ari_control =
+                                            arulesimp_control(
+                                              method = "top_n_majv"
+                                              , top_n = 7
+                                              , use_default_classes = 0
+                                              , weighted_chisq = FALSE
+                                            ))
+                    , topnmjv = ARImpute(cars_conf, ti_factor
+                                         , ari_control =
+                                           arulesimp_control(
+                                             method = "top_n_majv"
+                                             , use_default_classes = 0
+                                             , weighted_chisq = FALSE
+                                           ))
+                    , rhsfreq3 = ARImpute(cars_conf, ti_factor
+                                          , ari_control =
+                                            arulesimp_control(
+                                              method = "consequent_frequency"
+                                              , top_n = 3
+                                              , use_default_classes = 0
+                                              , weighted_chisq = FALSE
+                                            ))
+                    , rhsfreq7 = ARImpute(cars_conf, ti_factor
+                                          , ari_control =
+                                            arulesimp_control(
+                                              method = "consequent_frequency"
+                                              , top_n = 7
+                                              , use_default_classes = 0
+                                              , weighted_chisq = FALSE
+                                            ))
+                    , rhsfreq = ARImpute(cars_conf, ti_factor
+                                         , ari_control =
+                                           arulesimp_control(
+                                             method = "consequent_frequency"
+                                             , use_default_classes = 0
+                                             , weighted_chisq = FALSE
+                                           ))
+)
+print(i)
+}
+results <- lapply(imputations, function(rout) {
+
+  res <- as.data.frame(sapply(rout, function(b) {
+    if ("factor" %in% class(b)) as.numeric(as.character(b)) else b
+  }))
+  res <- wu_collect_stats(res
+                          , untreated = untreated
+                          , mim = ti_mim)
+  return(res)
+})
+
 
 
 imputations <- list(
