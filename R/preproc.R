@@ -2,7 +2,9 @@
 
 # could do with a routine check for data frames all numeric, numeric matrix, likert type (e.g. all same range)
 
-#' Routine check for presence of missing data
+#' Check for any missing values
+#'
+#' This utility function is a simple, routine check for presence of missing data. Used internally, not exported.
 #'
 no_missing_check <- function(dt) {
   if (sum(is.na(dt)) == 0) {
@@ -13,42 +15,58 @@ no_missing_check <- function(dt) {
   }
 }
 
-
 #' Replace character strings with NA.
 #'
-#' @description Useful for data with empty strings (default) or other character values to indicate missing
-#' @param dt A data frame
-#' @param char_string A character string (default = "")
-#' @return A copy of the input with all target strings replaced by NA
+#' This utility function is used to clean non-standard missing values.
+#' Converts the supplied char_string (default = "") to \code{NA}.
+#'
+#' @param dt A vector, matrix or data frame.
+#' @param char_string A character string. Default = "".
+#' @return A copy of the input with all target strings replaced by NA.
 #' @examples
+#' char_to_na(c("foo", "", "bar"))
+#' char_to_na(matrix(c("foo", "", "bar")))
 #' char_to_na(data.frame(x = c("foo", ""), b = c("", "bar")))
 #' char_to_na(data.frame(x = c("foo", "_"), b = c("_", "bar")), char_string = "_")
 #' @export
 char_to_na <- function(dt
                        , char_string = "") {
-  cla <- sapply(dt, class)
-  fac <- names(cla[cla == "factor"])
-  cha <- names(cla[cla == "character"])
-  faccha <- c(fac, cha)
+  if (class(dt) == "data.frame") {
 
-  for (f in faccha) {
-    dt[, f] <- ifelse(dt[, f] == char_string
+    cla <- sapply(dt, class)
+    fac <- names(cla[cla == "factor"])
+    cha <- names(cla[cla == "character"])
+    faccha <- c(fac, cha)
+
+    for (f in faccha) {
+      dt[, f] <- ifelse(dt[, f] == char_string
+                        , NA
+                        , as.character(dt[, f]))
+    }
+    for (f in fac) {
+      dt[, f] <- factor(dt[, f])
+    }
+  } else {
+    dt <- ifelse(dt == char_string
                       , NA
-                      , as.character(dt[, f]))
-  }
-  for (f in fac) {
-    dt[, f] <- factor(dt[, f])
+                      , as.character(dt))
   }
   return(dt)
 }
 
 #' Convert all variables to factors.
 #'
-#' @description Convenience function to converts everything it finds into a factor
-#' @param dt A data frame
-#' @param refactor Logical. Do you want it to also work on variables that are already factors? (Default is FALSE)
-#' @param ord A vector of Logical indicating which columns of dt should be converted to ordered factors. Will be recycled as necessary.
-#' @return A copy of the input where all variables except logicals have been converted to factors
+#' This convenience function converts all columns of the supplied data frame
+#'   into a factors. Existing factors can be ignored (default) or set again
+#'   which would result in losing any special order or labels.
+#'
+#' @param dt A data frame.
+#' @param refactor A logical scalar value. Do you want it to also work on variables
+#'   that are already factors? Default = \code{FALSE}.
+#' @param ord A logical vector, indicating which columns of dt should be
+#'   converted to ordered factors. Will be recycled as necessary.
+#' @return A copy of the input where all variables
+#'   except logicals have been converted to factors.
 #' @examples
 #' str(all_factor(data.frame(x = c("foo", "bar"), y = c(10, 20))))
 #' @export
@@ -89,102 +107,96 @@ all_factor <- function(dt
   return(dt)
 }
 
-#' Find the variables that contain any missing (NA) values.
+#' Find missing values
 #'
-#' @param dt A data frame
-#' @param sorted A logical vector. Do you want to sort the results (Default = TRUE)
-#' @return A named numeric. Names are the variable names from the input dt. Values are the count of NA found in that variable
+#' This utility function finds and counts any \code{NA} values
+#'   in each variable of a data frame.
+#'
+#' @param dt A vector, matrix, data frame or S3 object of \code{mim} class.
+#' @param sorted A logical scalar value. Do you want to sort the results?
+#'   Default = \code{TRUE}.
+#' @return A named numeric. Names are the column names if the
+#'   input is a data frame, column numbers for a matrix or
+#'   index positions if a vector.
+#'   Values are the count of \code{NA} found in that variable
 #' @examples
-#' missing_values(data.frame(x = c("foo", NA), y = c(NA, "bar")))
+#' missing_values(c(1, 1, 1, NA, NA, 1))
+#' missing_values(matrix(c(1, 1, NA, NA), ncol = 2))
+#' missing_values(data.frame(x = c("foo", NA, NA), y = c(NA, "bar", "bar")))
+#' missing_values(data.frame(x = c("foo", NA, NA), y = c(NA, "bar", "bar")), sorted = FALSE)
+#' @seealso \code{\link{missing_matrix}}
 #' @export
 missing_values <- function(dt
                            , sorted = TRUE) {
   if ("mim" %in% class(dt)) {
     mv <- colSums(dt$mim)
   } else {
-    mv <- sapply(dt, function(x) {
-      sum(is.na(x))
-    })
+    if (class(dt) != "matrix") {
+      mv <- sapply(dt, function(x) {
+        sum(is.na(x))
+      })
+      if (is.null(names(mv))) names(mv) <- as.character(seq_along(mv))
+    } else {
+      mv <- colSums(is.na(dt))
+      names(mv) <- as.character(seq_along(mv))
+    }
   }
   mv <- mv[which(mv > 0)]
   if (sorted) mv <- sort(mv)
   return(mv)
 }
 
-#' Create a list of unique values in a dataset
+#' Create a missing indicator information
 #'
-#' @description Useful for searching for rules
-#'
-#' @param dt A data frame
-#' @param which_cols A vector of variable names to search.
-#' @return A named list. Names are the input variable names.
-#' List values are vectors of unique values from the input dt.
-#' @examples
-#' missing_values(data.frame(x = c("foo", NA), y = c(NA, "bar")))
-#' @export
-unique_values <- function(dt, which_cols) {
-  uv <- lapply(which_cols, function(wc) {
-    unique(dt[[wc]])
-  })
-  names(uv) <- which_cols
-  return(uv)
-}
-
-#' Missing Indicator Matrix Statistics
-#'
-#' @description Counts and means of missing indicator matrix
+#' Converts a data frame into a mim object. This is a list
+#'   of vectors showing the positions of missing data by rows and columns
+#'   and a missing indicator matrix
 #'
 #' @param dt A data frame
 #' @param one_as_missing A scalar boolean. If true, 1 represents missing and 0 represents observed data. Otherwise the reverse true.
-#' @return A list of ...
-#' @examples
-#' mims(matrix(c(1, rep(0, 7), 1), ncol = 3))
-#' @export
-mimstats <- function(dt, one_as_missing = TRUE) {
-  # count whatever has one_as_missing value
-  is <- abs(rowSums(dt) - ncol(dt) * !(one_as_missing))
-  js <- abs(colSums(dt) - nrow(dt) * !(one_as_missing))
-
-  # collect all those with no missing
-  i_none_missing <- which(is == 0)
-  j_none_missing <- which(js == 0)
-
-
-  which_missing <- function(x) {
-    which(x == one_as_missing * 1)
-  }
-  which_not_missing <- function(x) {
-    which(x != one_as_missing * 1)
-  }
-
-  missing_for_i <- apply(dt, 1
-                         , which_missing)
-  missing_for_j <- apply(dt, 2
-                         , which_missing)
-  not_missing_for_i <- apply(dt, 1
-                         , which_not_missing)
-  not_missing_for_j <- apply(dt, 2
-                         , which_not_missing)
-
-  return(list(i_none_missing = i_none_missing
-              , j_none_missing = j_none_missing
-              , A_i = not_missing_for_i
-              , B_j = not_missing_for_j
-              , A_comp_i = missing_for_i
-              , B_comp_j = missing_for_j))
-}
-
-#' Create a missing indicator matrix for a dataset
-#'
-#' @description Converts a data frame into a missing indicator matrix
-#'
-#' @param dt A data frame
-#' @param one_as_missing A scalar boolean. If true, 1 represents missing and 0 represents observed data. Otherwise the reverse true.
-#' @return A list containing matrix of 1 and 0 having the same dimensions as the input and Carpita's measures.
+#' @return A list containing vectors showing the position of missing data
+#'   by rows and columns and a matrix of 1 and 0 having the same dimensions as the input.
 #' @examples
 #' missing_matrix(data.frame(x = c("foo", NA), y = c(NA, "bar")))
 #' @export
 missing_matrix <- function(dt, one_as_missing = TRUE) {
+  if (class(dt) != "data.frame") stop("dt should be a data frame with some missing data")
+  # function to generate Missing Indicator Matrix Statistics
+  mimstats <- function(dt) {
+    # count whatever has one_as_missing value
+    is <- abs(rowSums(dt))
+    js <- abs(colSums(dt))
+
+    # collect all those with no missing
+    i_none_missing <- which(is == 0)
+    j_none_missing <- which(js == 0)
+
+
+    which_missing <- function(x) {
+      which(x == one_as_missing * 1)
+    }
+    which_not_missing <- function(x) {
+      which(x != one_as_missing * 1)
+    }
+
+    missing_for_i <- apply(dt, 1
+                           , which_missing)
+    missing_for_j <- apply(dt, 2
+                           , which_missing)
+    not_missing_for_i <- apply(dt, 1
+                               , which_not_missing)
+    not_missing_for_j <- apply(dt, 2
+                               , which_not_missing)
+
+    return(list(i_none_missing = i_none_missing
+                , j_none_missing = j_none_missing
+                , A_i = not_missing_for_i
+                , B_j = not_missing_for_j
+                , A_comp_i = missing_for_i
+                , B_comp_j = missing_for_j))
+  }
+
+  # generate mim object
   mm <- is.na(dt)
   if(no_missing_check(dt)) return()
   if (!(one_as_missing)) {
@@ -226,9 +238,23 @@ remove_rhemtulla_cutpoints <- function() {
   if (exists("ari.env")) rm(ari.env, envir = .GlobalEnv)
 }
 
-#' Normal to Item Scale
+#' Convert normal data to item scale
 #'
-#' Discretize normally distributed data to ordinal scales based on desired distribution and number of levels
+#' Simulate Likert scales and ordinal data by discretizing normally distributed
+#'   data based on desired distribution and number of levels.
+#'
+#' @param dt A data frame.
+#' @param dist A character string. Allowed values are "symmetric"
+#'   "moderate_asym" and "severe_asym" to select the desired distribution.
+#'   Default = "symmetric".
+#' @param levs A scalar integer to set the number of item levels.
+#'   Allowed values are 2, 3, 5 or 7. Default = 5
+#' @param labels A scalar boolean. Passed to the cut function.
+#'   Determines whether labels or underlying factor keys are returned.
+#'   Default = \code{FALSE}.
+#' @examples
+#' cut_rhemtulla(rnorm(50), levs = 7)
+#' cut_rhemtulla(rnorm(50), levs = 7, dist = "severe_asym")
 #'
 #' @export
 cut_rhemtulla <- function(dt, dist = "symmetric"
@@ -255,9 +281,19 @@ cut_rhemtulla <- function(dt, dist = "symmetric"
   }
 }
 
-#' Equal cuts to item scale
+#' Convert continuous data to item scale
 #'
-#' COnvenience function for generating discrete data from continuous
+#' Simulate Likert scales and ordinal data by discretizing continuous data
+#'   making equal cuts by distance or count.
+#'
+#' @param dt A data frame.
+#' @param dist A character string. Allowed values are "equal_distance"
+#'   and "equal_count". Default = "equal_distance".
+#' @param levs A scalar integer to set the number of item levels.
+#'   Default = 5.
+#' @param labels A scalar boolean. Passed to the cut function.
+#'   Determines whether labels or underlying factor keys are returned.
+#'   Default = \code{FALSE}.
 #'
 #' @export
 cut_equal <- function(dt, dist = "equal_distance"

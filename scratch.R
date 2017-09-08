@@ -1064,9 +1064,126 @@ dw_mnar1$og_chisq_imputed_num <- as.data.frame(
 
 
 
+run_wu_ibenchmark <- function(to_impute, untreated, mi_mult = "rubin", results_only = TRUE) {
+  if(!(mi_mult %in% c("rubin", "white"))) stop("mi_mult should be either \"rubin\" or \"white\"")
 
+  ti_data <- to_impute$data
+  ti_mim <- to_impute$mim
+  ti_factor <- all_factor(ti_data)
+  mv_sorted <- missing_values(ti_mim)
 
+  ti_combi <- ord_combi_expand(ti_data[1:12]
+                               , likert_scales =
+                                 list(A = names(ti_data[1:6])
+                                      , B = names(ti_data[7:12]))
+                               , keep_orig = TRUE)
+  if (ncol(ti_data) == 14) ti_combi <- cbind(ti_combi, ti_data[, 13:14])
+  ti_combi_fac <- all_factor(ti_combi)
 
+  c_control <- cars_control(support = 0.02
+                            , confidence = 0.2
+                            , sort_by = "chiSquared"
+  )
+  ari_control <- arulesimp_control(method = "best_rule"
+                                   , use_default_classes = 1
+                                   , weighted_chisq = FALSE)
+
+  imputations <- list(
+    PM = LikertImpute(
+      ti_data, ti_mim
+      , "PM", rounding = nd_round)
+    , CIM = LikertImpute(
+      ti_data, ti_mim
+      , "CIM", rounding = nd_round)
+    , TW = LikertImpute(
+      ti_data, ti_mim
+      , "TW", rounding = nd_round)
+    , ICS = LikertImpute(
+      ti_data, ti_mim
+      , "TW", rounding = nd_round)
+  )
+  results <- lapply(imputations, function(rout) {
+
+    res <- as.data.frame(sapply(rout, function(b) {
+      if ("factor" %in% class(b)) as.numeric(as.character(b)) else b
+    }))
+    res <- wu_collect_stats(res
+                            , untreated = untreated
+                            , mim = ti_mim)
+    return(res)
+  })
+
+  # multiple imputation settings
+  if (mi_mult == "white") {
+    mi_runs <- round(to_impute$syn_control$prob * 100)
+  } else {
+    if (to_impute$syn_control$prob <= 0.15) mi_runs <- 3
+    if (to_impute$syn_control$prob > 0.15) mi_runs <- 5
+  }
+
+  # conduct imputations
+  ari.out <- list()
+  for (n in 1:mi_runs) {
+    ari.out[[n]] <-
+      ARImpute_iter(ti_data
+                    , missing_values(ti_data)
+                    , iter_control =
+                      iteration_control(
+                        method = "propensity"
+                        , class_balance = list(method = "both")
+                        , splits = 2
+                        , max_iter = 5
+                        , target_convergence = 36)
+                    , ari_control = ari_control
+                    , c_control = c_control)
+  }
+  isarbi.stats <- lapply(1:mi_runs, function(n) {
+    wu_collect_stats(ari.out[[n]], untreated, ti_mim)
+  })
+  headers <- names(isarbi.stats[[1]])
+
+  mean_params <- function(x) {
+    res <- lapply(headers, function(h) {
+      mean(unlist(lapply(1:mi_runs, function(n)
+        x[[n]][[h]])))
+    })
+    names(res) <- headers
+    return(res)
+  }
+
+  results$ibestdc1chip <- mean_params(isarbi.stats)
+
+  # multiple imputation methods
+  amelia.out <- amelia(ti_data, p2s = 0
+                       , ords = non_response_cols
+                       , m = mi_runs)
+  amelia.stats <- lapply(1:mi_runs, function(n) {
+    wu_collect_stats(amelia.out$imputations[[n]], untreated, ti_mim)
+  })
+
+  results$amelia <- mean_params(amelia.stats)
+
+  mice.out <- mice(ti_data, print = FALSE
+                   , m = mi_runs, meth = "pmm")
+  mice.stats <- lapply(1:mi_runs, function(n) {
+    wu_collect_stats(mice::complete(mice.out, n)
+                     , untreated, ti_mim)
+  })
+  results$mice <- mean_params(mice.stats)
+
+  if (results_only) {
+    return(results)
+  } else {
+    imputations$ari <- ari.out
+    imputations$amelia <- amelia.out$imputations
+    imputations$mice <- lapply(1:mi_runs, function(n) {
+      mice::complete(mice.out, n)})
+    imputations$untreated <- untreated
+    return(imputations)
+  }
+}
+
+mi_mult = "rubin"
 
 imputations <- list(bestrule = ARImpute(cars_conf, ti_factor
                                         , ari_control =

@@ -7,17 +7,22 @@
 all_factor(dt, refactor = FALSE, ord = FALSE)
 }
 \arguments{
-\item{dt}{A data frame}
+\item{dt}{A data frame.}
 
-\item{refactor}{Logical. Do you want it to also work on variables that are already factors? (Default is FALSE)}
+\item{refactor}{A logical scalar value. Do you want it to also work on variables
+that are already factors? Default = \code{FALSE}.}
 
-\item{ord}{A vector of Logical indicating which columns of dt should be converted to ordered factors. Will be recycled as necessary.}
+\item{ord}{A logical vector, indicating which columns of dt should be
+converted to ordered factors. Will be recycled as necessary.}
 }
 \value{
-A copy of the input where all variables except logicals have been converted to factors
+A copy of the input where all variables
+  except logicals have been converted to factors.
 }
 \description{
-Convenience function to converts everything it finds into a factor
+This convenience function converts all columns of the supplied data frame
+  into a factors. Existing factors can be ignored (default) or set again
+  which would result in losing any special order or labels.
 }
 \examples{
 str(all_factor(data.frame(x = c("foo", "bar"), y = c(10, 20))))

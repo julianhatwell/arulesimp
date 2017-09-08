@@ -2,21 +2,32 @@
 % Please edit documentation in R/preproc.R
 \name{missing_values}
 \alias{missing_values}
-\title{Find the variables that contain any missing (NA) values.}
+\title{Find missing values}
 \usage{
 missing_values(dt, sorted = TRUE)
 }
 \arguments{
-\item{dt}{A data frame}
+\item{dt}{A vector, matrix, data frame or S3 object of \code{mim} class.}
 
-\item{sorted}{A logical vector. Do you want to sort the results (Default = TRUE)}
+\item{sorted}{A logical scalar value. Do you want to sort the results?
+Default = \code{TRUE}.}
 }
 \value{
-A named numeric. Names are the variable names from the input dt. Values are the count of NA found in that variable
+A named numeric. Names are the column names if the
+  input is a data frame, column numbers for a matrix or
+  index positions if a vector.
+  Values are the count of \code{NA} found in that variable
 }
 \description{
-Find the variables that contain any missing (NA) values.
+This utility function finds and counts any \code{NA} values
+  in each variable of a data frame.
 }
 \examples{
-missing_values(data.frame(x = c("foo", NA), y = c(NA, "bar")))
+missing_values(c(1, 1, 1, NA, NA, 1))
+missing_values(matrix(c(1, 1, NA, NA), ncol = 2))
+missing_values(data.frame(x = c("foo", NA, NA), y = c(NA, "bar", "bar")))
+missing_values(data.frame(x = c("foo", NA, NA), y = c(NA, "bar", "bar")), sorted = FALSE)
+}
+\seealso{
+\code{\link{missing_matrix}}
 }

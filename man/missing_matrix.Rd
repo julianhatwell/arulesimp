@@ -2,7 +2,7 @@
 % Please edit documentation in R/preproc.R
 \name{missing_matrix}
 \alias{missing_matrix}
-\title{Create a missing indicator matrix for a dataset}
+\title{Create a missing indicator information}
 \usage{
 missing_matrix(dt, one_as_missing = TRUE)
 }
@@ -12,10 +12,13 @@ missing_matrix(dt, one_as_missing = TRUE)
 \item{one_as_missing}{A scalar boolean. If true, 1 represents missing and 0 represents observed data. Otherwise the reverse true.}
 }
 \value{
-A list containing matrix of 1 and 0 having the same dimensions as the input and Carpita's measures.
+A list containing vectors showing the position of missing data
+  by rows and columns and a matrix of 1 and 0 having the same dimensions as the input.
 }
 \description{
-Converts a data frame into a missing indicator matrix
+Converts a data frame into a mim object. This is a list
+  of vectors showing the positions of missing data by rows and columns
+  and a missing indicator matrix
 }
 \examples{
 missing_matrix(data.frame(x = c("foo", NA), y = c(NA, "bar")))

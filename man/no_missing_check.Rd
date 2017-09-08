@@ -2,10 +2,10 @@
 % Please edit documentation in R/preproc.R
 \name{no_missing_check}
 \alias{no_missing_check}
-\title{Routine check for presence of missing data}
+\title{Check for any missing values}
 \usage{
 no_missing_check(dt)
 }
 \description{
-Routine check for presence of missing data
+This utility function is a simple, routine check for presence of missing data. Used internally, not exported.
 }

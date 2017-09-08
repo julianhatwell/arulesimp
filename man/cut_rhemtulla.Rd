@@ -2,10 +2,25 @@
 % Please edit documentation in R/preproc.R
 \name{cut_rhemtulla}
 \alias{cut_rhemtulla}
-\title{Normal to Item Scale}
+\title{Convert normal data to item scale}
 \usage{
 cut_rhemtulla(dt, dist = "symmetric", levs = 5, labels = FALSE)
 }
+\arguments{
+\item{dt}{A data frame.}
+
+\item{dist}{A character string. Allowed values are "symmetric"
+"moderate_asym" and "severe_asym" to select the desired distribution.
+Default = "symmetric"}
+
+\item{levs}{A scalar integer to set the number of item levels.
+Allowed values are 2, 3, 5 or 7.}
+
+\item{labels}{A scalar boolean. Passed to the cut function.
+Determines whether labels or underlying factor keys are returned.
+Default = \code{FALSE}}
+}
 \description{
-Discretize normally distributed data to ordinal scales based on desired distribution and number of levels
+Simulate Likert scales and ordinal data by discretizing normally distributed
+  data based on desired distribution and number of levels.
 }

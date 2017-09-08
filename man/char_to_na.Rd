@@ -7,17 +7,20 @@
 char_to_na(dt, char_string = "")
 }
 \arguments{
-\item{dt}{A data frame}
+\item{dt}{A vector, matrix or data frame.}
 
-\item{char_string}{A character string (default = "")}
+\item{char_string}{A character string. Default = "".}
 }
 \value{
-A copy of the input with all target strings replaced by NA
+A copy of the input with all target strings replaced by NA.
 }
 \description{
-Useful for data with empty strings (default) or other character values to indicate missing
+This utility function is used to clean non-standard missing values.
+Converts the supplied char_string (default = "") to \code{NA}.
 }
 \examples{
+char_to_na(c("foo", "", "bar"))
+char_to_na(matrix(c("foo", "", "bar")))
 char_to_na(data.frame(x = c("foo", ""), b = c("", "bar")))
 char_to_na(data.frame(x = c("foo", "_"), b = c("_", "bar")), char_string = "_")
 }
